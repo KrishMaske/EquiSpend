@@ -21,7 +21,7 @@ const { width } = Dimensions.get('window');
 // the FastAPI backend on a physical device / emulator.
 // e.g. "http://192.168.1.42:8000"
 // -------------------------------------------------------------------
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'http://10.74.228.241:8000';
 
 interface ScanResult {
     product_name?: string;
