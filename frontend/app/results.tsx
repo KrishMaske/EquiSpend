@@ -12,7 +12,7 @@ import {
     Platform,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { getSharedImage, getSharedLocation } from '../image-store';
+import { getSharedImage, getSharedLocation, getSharedManualPrice } from '../image-store';
 
 const { width } = Dimensions.get('window');
 
@@ -28,6 +28,7 @@ interface ScanResult {
     price_scanned?: number;
     fair_price?: number;
     equity_gap?: number;
+    currency_symbol?: string;
 }
 
 interface AnalysisData {
@@ -43,6 +44,7 @@ export default function ResultsScreen() {
 
     const imageUri = getSharedImage() ?? '';
     const location = getSharedLocation();
+    const { price: manualPrice, currency } = getSharedManualPrice();
     const mode = params.mode ?? 'girl';
 
     const [state, setState] = useState<AnalysisState>('loading');
@@ -68,6 +70,12 @@ export default function ResultsScreen() {
                 if (location.city) formData.append('city', location.city);
                 if (location.country) formData.append('country', location.country);
             }
+
+            // Attach manual price + currency if provided
+            if (manualPrice !== null) {
+                formData.append('manual_price', String(manualPrice));
+            }
+            formData.append('currency', currency);
 
             // Attach image — web needs blob, native needs file URI object
             if (Platform.OS === 'web') {
@@ -182,6 +190,7 @@ export default function ResultsScreen() {
         const priceScanned = data.price_scanned ?? 0;
         const fairPrice = data.fair_price ?? 0;
         const equityGap = data.equity_gap ?? 0;
+        const currencySymbol = data.currency_symbol ?? currency ?? '$';
         const percentMarkup =
             fairPrice > 0 ? (((priceScanned - fairPrice) / fairPrice) * 100).toFixed(0) : '0';
         const hasTax = equityGap > 0;
@@ -219,12 +228,12 @@ export default function ResultsScreen() {
                     <View style={styles.divider} />
                     <View style={styles.priceRow}>
                         <Text style={styles.priceLabel}>Price Scanned</Text>
-                        <Text style={styles.priceValue}>${Number(priceScanned).toFixed(2)}</Text>
+                        <Text style={styles.priceValue}>{currencySymbol}{Number(priceScanned).toFixed(2)}</Text>
                     </View>
                     <View style={styles.priceRow}>
-                        <Text style={styles.priceLabel}>Fair Price</Text>
+                        <Text style={styles.priceLabel}>Market Price</Text>
                         <Text style={[styles.priceValue, { color: '#10B981' }]}>
-                            ${Number(fairPrice).toFixed(2)}
+                            {currencySymbol}{Number(fairPrice).toFixed(2)}
                         </Text>
                     </View>
                     <View style={styles.divider} />
@@ -233,7 +242,7 @@ export default function ResultsScreen() {
                         <Text
                             style={[styles.priceValueBold, { color: hasTax ? '#F87171' : '#10B981' }]}
                         >
-                            {hasTax ? `+$${Math.abs(Number(equityGap)).toFixed(2)}` : '$0.00'}
+                            {hasTax ? `+${currencySymbol}${Math.abs(Number(equityGap)).toFixed(2)}` : `${currencySymbol}0.00`}
                         </Text>
                     </View>
                 </View>
@@ -246,7 +255,7 @@ export default function ResultsScreen() {
                     </View>
                     <View style={[styles.miniStat, { borderColor: '#10B98130' }]}>
                         <Text style={[styles.miniStatValue, { color: '#10B981' }]}>
-                            ${Math.abs(Number(equityGap)).toFixed(2)}
+                            {currencySymbol}{Math.abs(Number(equityGap)).toFixed(2)}
                         </Text>
                         <Text style={styles.miniStatLabel}>Savings</Text>
                     </View>
@@ -257,17 +266,9 @@ export default function ResultsScreen() {
                     <View style={styles.suggestionBox}>
                         <Text style={styles.suggestionText}>
                             {label === 'Pink Tax'
-                                ? `Look for the generic or male-equivalent version. You could save $${Math.abs(Number(equityGap)).toFixed(2)} per purchase.`
-                                : `Check for the MRP label or compare at a local vendor. The fair price is $${Number(fairPrice).toFixed(2)}.`}
+                                ? `Look for the generic or male-equivalent version. You could save ${currencySymbol}${Math.abs(Number(equityGap)).toFixed(2)} per purchase.`
+                                : `Check for the MRP label or compare at a local vendor. The fair price is ${currencySymbol}${Number(fairPrice).toFixed(2)}.`}
                         </Text>
-                        <TouchableOpacity
-                            style={[styles.suggestionButton, { backgroundColor: accentColor }]}
-                            activeOpacity={0.7}
-                        >
-                            <Text style={styles.suggestionButtonText}>
-                                {label === 'Pink Tax' ? '🔄  Find Cheaper Alternative' : '📍  Find Local Vendors'}
-                            </Text>
-                        </TouchableOpacity>
                     </View>
                 )}
             </Animated.View>

@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
     Dimensions,
@@ -10,11 +11,35 @@ import {
     Alert,
     Platform,
     ActivityIndicator,
+    ScrollView,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import Animated, { FadeIn, FadeInDown, SlideInUp } from 'react-native-reanimated';
-import { setSharedImage, setSharedLocation } from '../image-store';
+import { setSharedImage, setSharedLocation, setSharedManualPrice } from '../image-store';
+
+const CURRENCIES = [
+    { code: 'USD', symbol: '$', label: 'US Dollar' },
+    { code: 'EUR', symbol: '€', label: 'Euro' },
+    { code: 'GBP', symbol: '£', label: 'British Pound' },
+    { code: 'INR', symbol: '₹', label: 'Indian Rupee' },
+    { code: 'JPY', symbol: '¥', label: 'Japanese Yen' },
+    { code: 'CNY', symbol: '¥', label: 'Chinese Yuan' },
+    { code: 'CAD', symbol: 'C$', label: 'Canadian Dollar' },
+    { code: 'AUD', symbol: 'A$', label: 'Australian Dollar' },
+    { code: 'CHF', symbol: 'Fr', label: 'Swiss Franc' },
+    { code: 'SGD', symbol: 'S$', label: 'Singapore Dollar' },
+    { code: 'MXN', symbol: '$', label: 'Mexican Peso' },
+    { code: 'BRL', symbol: 'R$', label: 'Brazilian Real' },
+    { code: 'KRW', symbol: '₩', label: 'South Korean Won' },
+    { code: 'AED', symbol: 'د.إ', label: 'UAE Dirham' },
+    { code: 'SAR', symbol: '﷼', label: 'Saudi Riyal' },
+    { code: 'THB', symbol: '฿', label: 'Thai Baht' },
+    { code: 'IDR', symbol: 'Rp', label: 'Indonesian Rupiah' },
+    { code: 'TRY', symbol: '₺', label: 'Turkish Lira' },
+    { code: 'ZAR', symbol: 'R', label: 'South African Rand' },
+    { code: 'SEK', symbol: 'kr', label: 'Swedish Krona' },
+];
 
 const { width } = Dimensions.get('window');
 const PREVIEW_SIZE = width > 500 ? 320 : width * 0.65;
@@ -24,6 +49,11 @@ export default function ScannerScreen() {
     const [girlActive, setGirlActive] = useState(true);
     const [travelActive, setTravelActive] = useState(false);
     const [imageUri, setImageUri] = useState<string | null>(null);
+
+    // Manual price state
+    const [manualPriceText, setManualPriceText] = useState('');
+    const [selectedCurrency, setSelectedCurrency] = useState('USD');
+    const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
 
     // Location state
     const [locationLoading, setLocationLoading] = useState(true);
@@ -47,31 +77,47 @@ export default function ScannerScreen() {
         setLocationLoading(true);
         setLocationError(null);
         try {
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') {
-                setLocationError('Location permission denied');
-                setLocationLoading(false);
-                return;
-            }
+            if (Platform.OS === 'web') {
+                // expo-location reverse geocode doesn't work on web.
+                // Fall back to IP-based geolocation (no permission needed).
+                const res = await fetch('https://ipapi.co/json/');
+                if (!res.ok) throw new Error('IP geolocation failed');
+                const data = await res.json();
+                if (data.error) throw new Error(data.reason ?? 'IP geolocation error');
+                setLocationCoords({
+                    latitude: data.latitude,
+                    longitude: data.longitude,
+                });
+                setLocationCity(data.city ?? data.region ?? null);
+                setLocationCountry(data.country_name ?? null);
+            } else {
+                // Native: use GPS + reverse geocode
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status !== 'granted') {
+                    setLocationError('Location permission denied');
+                    setLocationLoading(false);
+                    return;
+                }
 
-            const loc = await Location.getCurrentPositionAsync({
-                accuracy: Location.Accuracy.Balanced,
-            });
+                const loc = await Location.getCurrentPositionAsync({
+                    accuracy: Location.Accuracy.Balanced,
+                });
 
-            setLocationCoords({
-                latitude: loc.coords.latitude,
-                longitude: loc.coords.longitude,
-            });
+                setLocationCoords({
+                    latitude: loc.coords.latitude,
+                    longitude: loc.coords.longitude,
+                });
 
-            // Reverse geocode to get city & country
-            const [geo] = await Location.reverseGeocodeAsync({
-                latitude: loc.coords.latitude,
-                longitude: loc.coords.longitude,
-            });
+                // Reverse geocode to get city & country
+                const [geo] = await Location.reverseGeocodeAsync({
+                    latitude: loc.coords.latitude,
+                    longitude: loc.coords.longitude,
+                });
 
-            if (geo) {
-                setLocationCity(geo.city ?? geo.subregion ?? geo.region ?? null);
-                setLocationCountry(geo.country ?? null);
+                if (geo) {
+                    setLocationCity(geo.city ?? geo.subregion ?? geo.region ?? null);
+                    setLocationCountry(geo.country ?? null);
+                }
             }
         } catch (e: any) {
             setLocationError(e.message ?? 'Could not get location');
@@ -177,7 +223,7 @@ export default function ScannerScreen() {
             return;
         }
 
-        // Store image + location in shared memory
+        // Store image + location + manual price in shared memory
         setSharedImage(imageUri);
         setSharedLocation(
             locationCoords
@@ -188,6 +234,8 @@ export default function ScannerScreen() {
                 }
                 : null
         );
+        const parsedPrice = manualPriceText.trim() !== '' ? parseFloat(manualPriceText) : null;
+        setSharedManualPrice(!isNaN(parsedPrice as number) ? parsedPrice : null, selectedCurrency);
 
         router.push({
             pathname: '/results',
@@ -308,6 +356,70 @@ export default function ScannerScreen() {
 
             {/* Bottom controls */}
             <Animated.View entering={SlideInUp.duration(600)} style={styles.controlsPanel}>
+                {/* Manual Price Input */}
+                <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.priceInputContainer}>
+                    <Text style={styles.modeLabel}>Manual Price (Optional)</Text>
+                    <Text style={styles.modeHint}>Override the price detected from the image</Text>
+                    <View style={styles.priceRow}>
+                        {/* Currency picker button */}
+                        <TouchableOpacity
+                            style={styles.currencyButton}
+                            onPress={() => setShowCurrencyPicker((p) => !p)}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.currencyButtonText}>
+                                {selectedCurrency} {CURRENCIES.find(c => c.code === selectedCurrency)?.symbol}
+                            </Text>
+                            <Text style={styles.currencyChevron}>{showCurrencyPicker ? '▲' : '▼'}</Text>
+                        </TouchableOpacity>
+
+                        {/* Price text input */}
+                        <TextInput
+                            style={styles.priceInput}
+                            placeholder="e.g. 12.99"
+                            placeholderTextColor="#475569"
+                            keyboardType="decimal-pad"
+                            value={manualPriceText}
+                            onChangeText={setManualPriceText}
+                            returnKeyType="done"
+                            accessibilityLabel="Manual price input"
+                        />
+                        {manualPriceText.length > 0 && (
+                            <TouchableOpacity onPress={() => setManualPriceText('')} style={styles.priceClearBtn}>
+                                <Text style={styles.priceClearText}>✕</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
+                    {/* Currency dropdown list */}
+                    {showCurrencyPicker && (
+                        <View style={styles.currencyDropdown}>
+                            <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                                {CURRENCIES.map((c) => (
+                                    <TouchableOpacity
+                                        key={c.code}
+                                        style={[
+                                            styles.currencyOption,
+                                            selectedCurrency === c.code && styles.currencyOptionActive,
+                                        ]}
+                                        onPress={() => {
+                                            setSelectedCurrency(c.code);
+                                            setShowCurrencyPicker(false);
+                                        }}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={styles.currencyOptionSymbol}>{c.symbol}</Text>
+                                        <Text style={styles.currencyOptionLabel}>{c.code} — {c.label}</Text>
+                                        {selectedCurrency === c.code && (
+                                            <Text style={styles.currencyOptionCheck}>✓</Text>
+                                        )}
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    )}
+                </Animated.View>
+
                 {/* Mode Toggles */}
                 <Animated.View
                     entering={FadeInDown.delay(200).duration(500)}
@@ -557,6 +669,66 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: 'rgba(129, 140, 248, 0.1)',
     },
+
+    /* ---- Manual price input ---- */
+    priceInputContainer: { marginBottom: 16 },
+    priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+    currencyButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#1E293B',
+        borderWidth: 1,
+        borderColor: 'rgba(129,140,248,0.25)',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 12,
+        gap: 6,
+        minWidth: 90,
+    },
+    currencyButtonText: { fontSize: 13, fontWeight: '700', color: '#818CF8' },
+    currencyChevron: { fontSize: 10, color: '#64748B' },
+    priceInput: {
+        flex: 1,
+        backgroundColor: '#1E293B',
+        borderWidth: 1,
+        borderColor: 'rgba(129,140,248,0.25)',
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        fontSize: 15,
+        color: '#FFFFFF',
+        fontWeight: '600',
+    },
+    priceClearBtn: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(100,116,139,0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    priceClearText: { fontSize: 14, color: '#64748B', fontWeight: '700' },
+    currencyDropdown: {
+        marginTop: 6,
+        backgroundColor: '#1E293B',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(129,140,248,0.2)',
+        overflow: 'hidden',
+    },
+    currencyOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        gap: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.04)',
+    },
+    currencyOptionActive: { backgroundColor: 'rgba(129,140,248,0.1)' },
+    currencyOptionSymbol: { fontSize: 15, color: '#818CF8', width: 24, textAlign: 'center' },
+    currencyOptionLabel: { flex: 1, fontSize: 13, color: '#94A3B8', fontWeight: '500' },
+    currencyOptionCheck: { fontSize: 14, color: '#10B981', fontWeight: '700' },
     modeToggleContainer: { marginBottom: 18 },
     modeLabel: {
         fontSize: 13,

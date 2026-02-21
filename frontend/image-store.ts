@@ -4,6 +4,8 @@
 
 let _imageUri: string | null = null;
 let _location: { latitude: number; longitude: number; city?: string; country?: string } | null = null;
+let _manualPrice: number | null = null;
+let _currency: string = 'USD';
 
 export function setSharedImage(uri: string | null) {
     _imageUri = uri;
@@ -19,4 +21,13 @@ export function setSharedLocation(loc: { latitude: number; longitude: number; ci
 
 export function getSharedLocation() {
     return _location;
+}
+
+export function setSharedManualPrice(price: number | null, currency: string) {
+    _manualPrice = price;
+    _currency = currency;
+}
+
+export function getSharedManualPrice(): { price: number | null; currency: string } {
+    return { price: _manualPrice, currency: _currency };
 }

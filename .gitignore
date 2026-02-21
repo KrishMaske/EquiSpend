@@ -1,5 +1,33 @@
-.env*
-.venv*
+# ---- Environment & secrets ----
+.env
+.env.*
+*.env
+gemini_api.env
+
+# ---- Python ----
 __pycache__/
-package-lock.json
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# ---- Database ----
+*.db
+
+# ---- Node / Expo ----
 node_modules/
+package-lock.json
+.expo/
+dist/
+web-build/
+
+# ---- IDE ----
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
