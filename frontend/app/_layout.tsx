@@ -13,6 +13,7 @@ export default function RootLayout() {
         <Stack.Screen name="results" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="history" />
+        <Stack.Screen name="talk" options={{ presentation: 'modal' }} />
       </Stack>
       <StatusBar style="dark" />
     </>

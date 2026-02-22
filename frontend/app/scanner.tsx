@@ -13,6 +13,7 @@ import {
     ActivityIndicator,
     ScrollView,
     Switch,
+    Modal,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
@@ -43,6 +44,13 @@ const CURRENCIES = [
     { code: 'SEK', symbol: 'kr', label: 'Swedish Krona' },
 ];
 
+const POPULAR_COUNTRIES = [
+    'France', 'Japan', 'Spain', 'Italy', 'Germany', 'Mexico', 'Brazil',
+    'China', 'South Korea', 'India', 'Thailand', 'Vietnam', 'Indonesia',
+    'United Arab Emirates', 'Saudi Arabia', 'Egypt', 'Turkey',
+    'Russia', 'United States', 'United Kingdom', 'Canada', 'Australia', 'Argentina'
+];
+
 const { width } = Dimensions.get('window');
 const PREVIEW_SIZE = width > 500 ? 380 : width * 0.85;
 
@@ -57,6 +65,9 @@ export default function ScannerScreen() {
     const [manualPriceText, setManualPriceText] = useState('');
     const [selectedCurrency, setSelectedCurrency] = useState('USD');
     const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
+    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [showLocationPicker, setShowLocationPicker] = useState(false);
+    const [searchLocationText, setSearchLocationText] = useState('');
 
     // Location state
     const [locationLoading, setLocationLoading] = useState(true);
@@ -266,37 +277,105 @@ export default function ScannerScreen() {
                 />
             )}
 
-            {/* Location banner */}
-            <Animated.View entering={FadeIn.duration(500)} style={styles.locationBanner}>
-                <Text style={styles.locationIcon}>📍</Text>
-                <View style={styles.locationTextGroup}>
-                    <Text style={styles.locationLabel}>Your Location</Text>
-                    {locationLoading ? (
-                        <View style={styles.locationLoadingRow}>
-                            <ActivityIndicator size="small" color="#FF95B6" />
-                            <Text style={styles.locationValue}>Detecting…</Text>
+            {/* Location Picker Modal */}
+            <Modal
+                visible={showLocationPicker}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setShowLocationPicker(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Where are you playing?</Text>
+                            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowLocationPicker(false)}>
+                                <Text style={styles.modalCloseText}>✕</Text>
+                            </TouchableOpacity>
                         </View>
-                    ) : locationError ? (
-                        <TouchableOpacity onPress={getLocation} activeOpacity={0.7}>
-                            <Text style={[styles.locationValue, { color: '#DC2626' }]}>
-                                {locationError} — Tap to retry
-                            </Text>
+                        <TextInput
+                            style={styles.modalInput}
+                            placeholder="Type a country or city..."
+                            placeholderTextColor="#B8708A"
+                            value={searchLocationText}
+                            onChangeText={setSearchLocationText}
+                            onSubmitEditing={() => {
+                                if (searchLocationText.trim()) {
+                                    setLocationCountry(searchLocationText.trim());
+                                    setLocationCity(null);
+                                    setShowLocationPicker(false);
+                                }
+                            }}
+                            returnKeyType="search"
+                        />
+                        <ScrollView style={styles.modalList} keyboardShouldPersistTaps="handled">
+                            {POPULAR_COUNTRIES.filter(c => c.toLowerCase().includes(searchLocationText.toLowerCase())).map((country) => (
+                                <TouchableOpacity
+                                    key={country}
+                                    style={styles.modalOption}
+                                    onPress={() => {
+                                        setLocationCountry(country);
+                                        setLocationCity(null);
+                                        setShowLocationPicker(false);
+                                    }}
+                                    activeOpacity={0.7}
+                                >
+                                    <Text style={styles.modalOptionText}>{country}</Text>
+                                    {locationCountry === country && <Text style={styles.modalOptionCheck}>✓</Text>}
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                        <TouchableOpacity style={styles.modalAutoBtn} onPress={() => { setShowLocationPicker(false); getLocation(); }} activeOpacity={0.7}>
+                            <Text style={styles.modalAutoBtnText}>📍 Auto-Detect Location</Text>
                         </TouchableOpacity>
-                    ) : (
-                        <Text style={styles.locationValue}>{locationDisplay}</Text>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Location banner */}
+            <Animated.View entering={FadeIn.duration(500)} style={styles.locationBannerContainer}>
+                <View style={styles.locationBannerRow}>
+                    <Text style={styles.locationIcon}>📍</Text>
+                    <TouchableOpacity style={styles.locationTextGroup} activeOpacity={0.7} onPress={() => setShowLocationPicker(true)}>
+                        <Text style={styles.locationLabel}>Your Location</Text>
+                        {locationLoading ? (
+                            <View style={styles.locationLoadingRow}>
+                                <ActivityIndicator size="small" color="#FF95B6" />
+                                <Text style={styles.locationValue}>Detecting…</Text>
+                            </View>
+                        ) : locationError ? (
+                            <Text style={[styles.locationValue, { color: '#DC2626' }]}>
+                                {locationError} — Tap to edit
+                            </Text>
+                        ) : (
+                            <Text style={styles.locationValue}>{locationDisplay} ✎</Text>
+                        )}
+                    </TouchableOpacity>
+                    {!locationLoading && !locationError && (
+                        <TouchableOpacity onPress={getLocation} activeOpacity={0.7} style={styles.locationRefresh}>
+                            <Text style={styles.locationRefreshText}>↻</Text>
+                        </TouchableOpacity>
                     )}
                 </View>
-                {!locationLoading && !locationError && (
-                    <TouchableOpacity onPress={getLocation} activeOpacity={0.7} style={styles.locationRefresh}>
-                        <Text style={styles.locationRefreshText}>↻</Text>
+                <View style={styles.locationButtonGroup}>
+                    <TouchableOpacity onPress={() => router.push('/history')} activeOpacity={0.7} style={styles.profileButton}>
+                        <Text style={styles.profileButtonText}>History</Text>
                     </TouchableOpacity>
-                )}
-                <TouchableOpacity onPress={() => router.push('/history')} activeOpacity={0.7} style={styles.profileButton}>
-                    <Text style={styles.profileButtonText}>History</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => router.push('/profile')} activeOpacity={0.7} style={styles.profileButton}>
-                    <Text style={styles.profileButtonText}>Profile</Text>
-                </TouchableOpacity>
+                    <TouchableOpacity onPress={() => router.push('/profile')} activeOpacity={0.7} style={styles.profileButton}>
+                        <Text style={styles.profileButtonText}>Profile</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => {
+                        setSharedLocation(
+                            locationCoords
+                                ? { ...locationCoords, city: locationCity ?? undefined, country: locationCountry ?? undefined }
+                                : locationCity || locationCountry
+                                    ? { latitude: 0, longitude: 0, city: locationCity ?? undefined, country: locationCountry ?? undefined }
+                                    : null
+                        );
+                        router.push('/talk');
+                    }} activeOpacity={0.7} style={[styles.profileButton, { backgroundColor: 'rgba(59,130,246,0.15)' }]}>
+                        <Text style={[styles.profileButtonText, { color: '#3B82F6' }]}>Haggle</Text>
+                    </TouchableOpacity>
+                </View>
             </Animated.View>
 
             {/* Image preview / capture area */}
@@ -346,112 +425,128 @@ export default function ScannerScreen() {
 
             {/* Bottom controls */}
             <Animated.View entering={SlideInUp.duration(600)} style={styles.controlsPanel}>
-                {/* Manual Price Input */}
-                <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.priceInputContainer}>
-                    <Text style={styles.modeLabel}>Manual Price (Optional)</Text>
-                    <Text style={{ fontSize: 11, fontFamily: 'Avenir', color: '#B8708A', marginBottom: 10 }}>Override detected price</Text>
-                    <View style={styles.priceRow}>
-                        <TouchableOpacity
-                            style={styles.currencyButton}
-                            onPress={() => setShowCurrencyPicker((p) => !p)}
-                            activeOpacity={0.8}
-                        >
-                            <Text style={styles.currencyButtonText}>
-                                {selectedCurrency} {CURRENCIES.find(c => c.code === selectedCurrency)?.symbol}
-                            </Text>
-                            <Text style={styles.currencyChevron}>{showCurrencyPicker ? '▲' : '▼'}</Text>
-                        </TouchableOpacity>
 
-                        <TextInput
-                            style={styles.priceInput}
-                            placeholder="e.g. 12.99"
-                            placeholderTextColor="#B8708A"
-                            keyboardType="decimal-pad"
-                            value={manualPriceText}
-                            onChangeText={setManualPriceText}
-                            returnKeyType="done"
-                            accessibilityLabel="Manual price input"
-                        />
-                        {manualPriceText.length > 0 && (
-                            <TouchableOpacity onPress={() => setManualPriceText('')} style={styles.priceClearBtn}>
-                                <Text style={styles.priceClearText}>✕</Text>
-                            </TouchableOpacity>
-                        )}
-                    </View>
-
-                    {showCurrencyPicker && (
-                        <View style={styles.currencyDropdown}>
-                            <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
-                                {CURRENCIES.map((c) => (
-                                    <TouchableOpacity
-                                        key={c.code}
-                                        style={[
-                                            styles.currencyOption,
-                                            selectedCurrency === c.code && styles.currencyOptionActive,
-                                        ]}
-                                        onPress={() => {
-                                            setSelectedCurrency(c.code);
-                                            setShowCurrencyPicker(false);
-                                        }}
-                                        activeOpacity={0.7}
-                                    >
-                                        <Text style={styles.currencyOptionSymbol}>{c.symbol}</Text>
-                                        <Text style={styles.currencyOptionLabel}>{c.code} — {c.label}</Text>
-                                        {selectedCurrency === c.code && (
-                                            <Text style={styles.currencyOptionCheck}>✓</Text>
-                                        )}
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
-                        </View>
-                    )}
-                </Animated.View>
-
-                {/* Mode Toggle Switch */}
-                <Animated.View
-                    entering={FadeInDown.delay(200).duration(500)}
-                    style={styles.modeToggleContainer}
+                <TouchableOpacity
+                    onPress={() => setShowAdvanced(!showAdvanced)}
+                    activeOpacity={0.7}
+                    style={styles.advancedToggle}
                 >
-                    <Text style={styles.modeLabel}>Analysis Modes</Text>
-                    <View style={styles.toggleRow}>
-                        <View style={styles.toggleItem}>
-                            <Text style={[styles.toggleLabel, girlActive && styles.toggleLabelActive]}>Pink Tax</Text>
-                            <Switch
-                                value={girlActive}
-                                onValueChange={setGirlActive}
-                                trackColor={{ false: '#E8D5DB', true: '#FFCDD9' }}
-                                thumbColor={girlActive ? '#EC4899' : '#C8AAB2'}
-                                ios_backgroundColor="#E8D5DB"
-                            />
-                        </View>
-                        <View style={styles.toggleItem}>
-                            <Text style={[styles.toggleLabel, travelActive && styles.toggleLabelActiveTravel]}>Travel</Text>
-                            <Switch
-                                value={travelActive}
-                                onValueChange={setTravelActive}
-                                trackColor={{ false: '#E8D5DB', true: '#93C5FD' }}
-                                thumbColor={travelActive ? '#3B82F6' : '#C8AAB2'}
-                                ios_backgroundColor="#E8D5DB"
-                            />
-                        </View>
+                    <Text style={styles.advancedToggleText}>
+                        {showAdvanced ? 'Hide Advanced Options ▲' : 'Show Advanced Options (Modes & Price) ▼'}
+                    </Text>
+                </TouchableOpacity>
+
+                {showAdvanced && (
+                    <View>
+                        {/* Manual Price Input */}
+                        <Animated.View entering={FadeInDown.delay(50).duration(300)} style={styles.priceInputContainer}>
+                            <Text style={styles.modeLabel}>Manual Price (Optional)</Text>
+                            <Text style={{ fontSize: 11, fontFamily: 'Avenir', color: '#B8708A', marginBottom: 10 }}>Override detected price</Text>
+                            <View style={styles.priceRow}>
+                                <TouchableOpacity
+                                    style={styles.currencyButton}
+                                    onPress={() => setShowCurrencyPicker((p) => !p)}
+                                    activeOpacity={0.8}
+                                >
+                                    <Text style={styles.currencyButtonText}>
+                                        {selectedCurrency} {CURRENCIES.find(c => c.code === selectedCurrency)?.symbol}
+                                    </Text>
+                                    <Text style={styles.currencyChevron}>{showCurrencyPicker ? '▲' : '▼'}</Text>
+                                </TouchableOpacity>
+
+                                <TextInput
+                                    style={styles.priceInput}
+                                    placeholder="e.g. 12.99"
+                                    placeholderTextColor="#B8708A"
+                                    keyboardType="decimal-pad"
+                                    value={manualPriceText}
+                                    onChangeText={setManualPriceText}
+                                    returnKeyType="done"
+                                    accessibilityLabel="Manual price input"
+                                />
+                                {manualPriceText.length > 0 && (
+                                    <TouchableOpacity onPress={() => setManualPriceText('')} style={styles.priceClearBtn}>
+                                        <Text style={styles.priceClearText}>✕</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+
+                            {showCurrencyPicker && (
+                                <View style={styles.currencyDropdown}>
+                                    <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                                        {CURRENCIES.map((c) => (
+                                            <TouchableOpacity
+                                                key={c.code}
+                                                style={[
+                                                    styles.currencyOption,
+                                                    selectedCurrency === c.code && styles.currencyOptionActive,
+                                                ]}
+                                                onPress={() => {
+                                                    setSelectedCurrency(c.code);
+                                                    setShowCurrencyPicker(false);
+                                                }}
+                                                activeOpacity={0.7}
+                                            >
+                                                <Text style={styles.currencyOptionSymbol}>{c.symbol}</Text>
+                                                <Text style={styles.currencyOptionLabel}>{c.code} — {c.label}</Text>
+                                                {selectedCurrency === c.code && (
+                                                    <Text style={styles.currencyOptionCheck}>✓</Text>
+                                                )}
+                                            </TouchableOpacity>
+                                        ))}
+                                    </ScrollView>
+                                </View>
+                            )}
+                        </Animated.View>
+
+                        {/* Mode Toggle Switch */}
+                        <Animated.View
+                            entering={FadeInDown.delay(100).duration(300)}
+                            style={styles.modeToggleContainer}
+                        >
+                            <Text style={styles.modeLabel}>Analysis Modes</Text>
+                            <View style={styles.toggleRow}>
+                                <View style={styles.toggleItem}>
+                                    <Text style={[styles.toggleLabel, girlActive && styles.toggleLabelActive]}>Pink Tax</Text>
+                                    <Switch
+                                        value={girlActive}
+                                        onValueChange={setGirlActive}
+                                        trackColor={{ false: '#E8D5DB', true: '#FFCDD9' }}
+                                        thumbColor={girlActive ? '#EC4899' : '#C8AAB2'}
+                                        ios_backgroundColor="#E8D5DB"
+                                    />
+                                </View>
+                                <View style={styles.toggleItem}>
+                                    <Text style={[styles.toggleLabel, travelActive && styles.toggleLabelActiveTravel]}>Travel</Text>
+                                    <Switch
+                                        value={travelActive}
+                                        onValueChange={setTravelActive}
+                                        trackColor={{ false: '#E8D5DB', true: '#93C5FD' }}
+                                        thumbColor={travelActive ? '#3B82F6' : '#C8AAB2'}
+                                        ios_backgroundColor="#E8D5DB"
+                                    />
+                                </View>
+                            </View>
+                        </Animated.View>
                     </View>
-                </Animated.View>
+                )}
 
                 {/* Analyze Button */}
-                <Animated.View entering={FadeInDown.delay(400).duration(500)}>
+                <Animated.View entering={FadeInDown.delay(200).duration(500)}>
                     <TouchableOpacity
                         style={[
                             styles.analyzeButton,
-                            { backgroundColor: atLeastOneMode ? scanButtonColor : '#C8AAB2' },
-                            !imageUri && styles.analyzeButtonDim,
+                            { backgroundColor: !imageUri ? '#FF95B6' : (atLeastOneMode ? scanButtonColor : '#C8AAB2') },
                         ]}
-                        onPress={handleAnalyze}
+                        onPress={imageUri ? handleAnalyze : pickImage}
                         activeOpacity={0.7}
                     >
                         <View style={styles.analyzeButtonInner}>
-                            <Text style={styles.analyzeButtonIcon}>Scan</Text>
+                            <Text style={styles.analyzeButtonIcon}>
+                                {imageUri ? '✨' : '📸'}
+                            </Text>
                             <Text style={styles.analyzeButtonText}>
-                                {imageUri ? 'Analyze Product' : 'Select an Image First'}
+                                {imageUri ? 'Analyze Product' : 'Upload Photos to Scan'}
                             </Text>
                         </View>
                     </TouchableOpacity>
@@ -478,16 +573,24 @@ const styles = StyleSheet.create({
     },
 
     /* ---- Location banner ---- */
-    locationBanner: {
-        flexDirection: 'row',
-        alignItems: 'center',
+    locationBannerContainer: {
         backgroundColor: '#FFFFFF',
         paddingTop: Platform.OS === 'ios' ? 56 : Platform.OS === 'android' ? 44 : 16,
-        paddingBottom: 12,
+        paddingBottom: 16,
         paddingHorizontal: 20,
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(255, 149, 182, 0.2)',
+    },
+    locationBannerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
         gap: 10,
+        marginBottom: 12,
+    },
+    locationButtonGroup: {
+        flexDirection: 'row',
+        gap: 10,
+        justifyContent: 'flex-start',
     },
     locationIcon: {
         fontSize: 20,
@@ -694,10 +797,23 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
         paddingHorizontal: 24,
-        paddingTop: 24,
+        paddingTop: 16,
         paddingBottom: Platform.OS === 'ios' ? 40 : 36,
         borderTopWidth: 1,
         borderTopColor: 'rgba(255, 149, 182, 0.15)',
+    },
+    advancedToggle: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        marginBottom: 8,
+    },
+    advancedToggleText: {
+        color: '#8A6B75',
+        fontSize: 12,
+        fontFamily: 'Avenir',
+        fontWeight: '700',
+        letterSpacing: 0.5,
     },
 
     /* ---- Manual price input ---- */
@@ -814,4 +930,89 @@ const styles = StyleSheet.create({
 
     /* ---- Mode description ---- */
     modeDescription: { fontSize: 13, fontFamily: 'Avenir', color: '#8A6B75', textAlign: 'center', lineHeight: 18 },
+
+    /* ---- Modal Styles ---- */
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(10, 14, 26, 0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: '#FFF0F3',
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        paddingHorizontal: 24,
+        paddingTop: 24,
+        paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+        maxHeight: '80%',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 16,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#D46A92',
+    },
+    modalCloseBtn: {
+        padding: 4,
+    },
+    modalCloseText: {
+        fontSize: 18,
+        color: '#8A6B75',
+        fontWeight: '800',
+    },
+    modalInput: {
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: 'rgba(255,149,182,0.3)',
+        borderRadius: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        fontSize: 15,
+        color: '#1A1A1A',
+        fontWeight: '600',
+        marginBottom: 16,
+    },
+    modalList: {
+        maxHeight: 300,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255,149,182,0.15)',
+    },
+    modalOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,149,182,0.1)',
+        justifyContent: 'space-between',
+    },
+    modalOptionText: {
+        fontSize: 15,
+        color: '#4A2035',
+        fontWeight: '600',
+    },
+    modalOptionCheck: {
+        fontSize: 16,
+        color: '#D46A92',
+        fontWeight: '800',
+    },
+    modalAutoBtn: {
+        marginTop: 20,
+        backgroundColor: 'rgba(255,149,182,0.15)',
+        borderRadius: 16,
+        paddingVertical: 16,
+        alignItems: 'center',
+    },
+    modalAutoBtnText: {
+        color: '#D46A92',
+        fontSize: 15,
+        fontWeight: '700',
+    },
 });
