@@ -247,8 +247,15 @@ def pick_best_result(shopping_results: list, product_data: dict, mode: str) -> t
         
         source_bonus = 0
         if any(ps in source for ps in PREFERRED_SOURCES):
-            # Only give the +2 bonus if it's a 1st party seller
-            source_bonus = 2 if not is_third_party else 0
+            # Target and Walmart 1st-party listings get a huge +4 to force them to the top
+            source_bonus = 4 if not is_third_party else 0
+
+        # --- NEW FIX: Delivery App Penalty ---
+        # Instacart, DoorDash, etc., often have wildly inaccurate or localized pricing.
+        delivery_apps = ["instacart", "doordash", "uber eats", "shipt", "gopuff", "walgreens delivery"]
+        if any(app in source for app in delivery_apps):
+            source_bonus -= 5  # Push these way down the list
+            print(f"   📉 Penalized delivery app: {source}")
 
         # Mode-specific scoring
         mode_bonus = 0
@@ -327,14 +334,13 @@ def run_comparison_analysis(product_data: dict, user_price: float, mode: str, us
     print(f"💰 User price: {user_price}")
 
     # ── Step 1: Check cache ──────────────────────────────────────────
-    # Temporarily disabled cache so we always get live images and links
-    # cached = check_cache(product_data, user_location, mode)
-    # if cached:
-    #     return {
-    #         "comparison_price": float(cached.get("domestic_price", 0)),
-    #         "comparable_product": cached.get("product_name", "Cached result"),
-    #         "source": "cache",
-    #     }
+    cached = check_cache(product_data, user_location, mode)
+    if cached:
+        return {
+            "comparison_price": float(cached.get("domestic_price", 0)),
+            "comparable_product": cached.get("product_name", "Cached result"),
+            "source": "cache",
+        }
 
     # ── Step 2: Generate comparison search query via Gemini ──────────
     comparison_info = build_comparison_query(product_data, mode)
@@ -386,15 +392,22 @@ def run_comparison_analysis(product_data: dict, user_price: float, mode: str, us
             # It is practically immune to lingering right-skewed outliers.
             if plausible_prices:
                 comparison_price = statistics.median(plausible_prices)
+                
+                # Find the item whose price is closest to the median
+                closest_item = min(
+                    [item for item in similar_items if float(item.get("extracted_price")) in plausible_prices],
+                    key=lambda x: abs(float(x.get("extracted_price")) - comparison_price)
+                )
             else:
                 comparison_price = top_price
+                closest_item = top
             
-            suggestion_price = top_price
+            suggestion_price = float(closest_item.get("extracted_price"))
             
-            comparable_product = top.get("title", comparable_desc or "Unknown")
-            store_name = top.get("source")
-            suggestion_image = top.get("thumbnail")
-            suggestion_link = top.get("link") or top.get("product_link")
+            comparable_product = closest_item.get("title", comparable_desc or "Unknown")
+            store_name = closest_item.get("source")
+            suggestion_image = closest_item.get("thumbnail")
+            suggestion_link = closest_item.get("link") or closest_item.get("product_link")
             
             print(f"✅ Comparison product: '{comparable_product}' at ${suggestion_price} from {store_name}")
             print(f"📊 Median market price of {len(plausible_prices)} valid items: ${comparison_price:.2f}")
