@@ -229,7 +229,15 @@ export default function ScannerScreen() {
                     state: locationState ?? undefined,
                     country: locationCountry ?? undefined,
                 }
-                : null
+                : (locationCity || locationState || locationCountry)
+                    ? {
+                        latitude: 0,
+                        longitude: 0,
+                        city: locationCity ?? undefined,
+                        state: locationState ?? undefined,
+                        country: locationCountry ?? undefined,
+                    }
+                    : null
         );
         setSharedManualPrice(null, selectedCurrency);
 

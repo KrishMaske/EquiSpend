@@ -103,7 +103,8 @@ def check_cache(product_data: dict, user_location: str, mode: str):
 
 def add_to_cache(product_data: dict, user_location: str, user_price: float,
                  comparison_price: float, store_name: str = None, is_pink_tax: bool = False,
-                 comparable_item_name: str = None, item_link: str = None, image_link: str = None):
+                 comparable_item_name: str = None, item_link: str = None, image_link: str = None,
+                 serp_currency: str = None):
     """
     Adds a new entry to the cache in Supabase.
     Checks for duplicates before inserting.
@@ -153,11 +154,12 @@ def add_to_cache(product_data: dict, user_location: str, user_price: float,
         "comparable_item_name": comparable_item_name,
         "item_link": item_link,
         "image_link": image_link,
+        "serp_currency": serp_currency,
     }
 
     try:
         supabase.table('cached_products').insert(payload).execute()
-        print("Successfully added entry to cached_products.")
+        print(f"Successfully added entry to cached_products (currency={serp_currency}).")
     except Exception as e:
         print("Error adding to cache:", e)
 
@@ -356,17 +358,25 @@ def run_comparison_analysis(product_data: dict, user_price: float, mode: str, us
         print(f"💱 No conversion needed — SERP and user both use {user_currency}")
 
     # ── Step 1: Check cache ──────────────────────────────────────────
+    # Cache now stores prices already converted to the user's currency.
+    # We skip cache if the stored currency doesn't match the user's currency.
     cached = check_cache(product_data, user_location, mode)
     if cached:
-        comp_price = float(cached.get("domestic_price", 0)) * exchange_rate
-        return {
-            "comparison_price": comp_price,
-            "suggestion_price": comp_price,
-            "comparable_product": cached.get("comparable_item_name") or cached.get("product_name", "Cached result"),
-            "source": cached.get("store_name") or "cache",
-            "suggestion_image": cached.get("image_link"),
-            "suggestion_link": cached.get("item_link"),
-        }
+        cached_currency = cached.get("serp_currency") or None
+        # Only use cache if it was stored for the same currency context
+        if cached_currency == user_currency:
+            comp_price = float(cached.get("domestic_price", 0))
+            print(f"✅ Cache hit — price already in {user_currency}")
+            return {
+                "comparison_price": comp_price,
+                "suggestion_price": comp_price,
+                "comparable_product": cached.get("comparable_item_name") or cached.get("product_name", "Cached result"),
+                "source": cached.get("store_name") or "cache",
+                "suggestion_image": cached.get("image_link"),
+                "suggestion_link": cached.get("item_link"),
+            }
+        else:
+            print(f"⚠️ Cache hit but currency mismatch (cached={cached_currency}, need={user_currency}) — skipping")
 
     # ── Step 2: Generate comparison search query via Gemini ──────────
     comparison_info = build_comparison_query(product_data, mode)
@@ -461,17 +471,18 @@ def run_comparison_analysis(product_data: dict, user_price: float, mode: str, us
             is_pink_tax = True
 
     # ── Step 5: Cache the result ─────────────────────────────────────
-    if comparison_price:
+    if converted_comparison_price:
         add_to_cache(
             product_data=product_data,
             user_location=user_location,
             user_price=user_price,
-            comparison_price=float(comparison_price), # Cache the RAW SERP price
+            comparison_price=converted_comparison_price,  # Store the converted price
             store_name=store_name,
             is_pink_tax=is_pink_tax,
             comparable_item_name=comparable_product,
             item_link=suggestion_link,
             image_link=suggestion_image,
+            serp_currency=user_currency,  # Tag with the currency it's stored in
         )
 
     return {
