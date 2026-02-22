@@ -64,7 +64,8 @@ export default function ScannerScreen() {
     const [imageUri, setImageUri] = useState<string | null>(null);
     const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
-    // Manual price state
+    // Manual price override state (collapsed by default — price is auto-detected)
+    const [showManualPrice, setShowManualPrice] = useState(false);
     const [manualPriceText, setManualPriceText] = useState('');
     const [selectedCurrency, setSelectedCurrency] = useState('USD');
     const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
@@ -75,6 +76,7 @@ export default function ScannerScreen() {
     // Location state
     const [locationLoading, setLocationLoading] = useState(true);
     const [locationCity, setLocationCity] = useState<string | null>(null);
+    const [locationState, setLocationState] = useState<string | null>(null);
     const [locationCountry, setLocationCountry] = useState<string | null>(null);
     const [locationCoords, setLocationCoords] = useState<{
         latitude: number;
@@ -103,7 +105,8 @@ export default function ScannerScreen() {
                     latitude: data.latitude,
                     longitude: data.longitude,
                 });
-                setLocationCity(data.city ?? data.region ?? null);
+                setLocationCity(data.city ?? null);
+                setLocationState(data.region ?? null);
                 setLocationCountry(data.country_name ?? null);
             } else {
                 const { status } = await Location.requestForegroundPermissionsAsync();
@@ -128,7 +131,8 @@ export default function ScannerScreen() {
                 });
 
                 if (geo) {
-                    setLocationCity(geo.city ?? geo.subregion ?? geo.region ?? null);
+                    setLocationCity(geo.city ?? geo.subregion ?? null);
+                    setLocationState(geo.region ?? null);
                     setLocationCountry(geo.country ?? null);
                 }
             }
@@ -238,6 +242,7 @@ export default function ScannerScreen() {
                 ? {
                     ...locationCoords,
                     city: locationCity ?? undefined,
+                    state: locationState ?? undefined,
                     country: locationCountry ?? undefined,
                 }
                 : null
@@ -262,9 +267,7 @@ export default function ScannerScreen() {
 
     const locationDisplay = locationLoading
         ? 'Detecting…'
-        : locationCity && locationCountry
-            ? `${locationCity}, ${locationCountry}`
-            : locationCity ?? locationCountry ?? 'Unknown';
+        : [locationCity, locationState, locationCountry].filter(Boolean).join(', ') || 'Unknown';
 
     return (
         <View style={styles.container}>
@@ -378,9 +381,9 @@ export default function ScannerScreen() {
                     <TouchableOpacity onPress={() => {
                         setSharedLocation(
                             locationCoords
-                                ? { ...locationCoords, city: locationCity ?? undefined, country: locationCountry ?? undefined }
+                                ? { ...locationCoords, city: locationCity ?? undefined, state: locationState ?? undefined, country: locationCountry ?? undefined }
                                 : locationCity || locationCountry
-                                    ? { latitude: 0, longitude: 0, city: locationCity ?? undefined, country: locationCountry ?? undefined }
+                                    ? { latitude: 0, longitude: 0, city: locationCity ?? undefined, state: locationState ?? undefined, country: locationCountry ?? undefined }
                                     : null
                         );
                         router.push('/talk');
@@ -450,64 +453,79 @@ export default function ScannerScreen() {
 
                 {showAdvanced && (
                     <View>
-                        {/* Manual Price Input */}
+                        {/* Manual Price Input — auto-detected by default */}
                         <Animated.View entering={FadeInDown.delay(50).duration(300)} style={styles.priceInputContainer}>
-                            <Text style={styles.modeLabel}>Manual Price (Optional)</Text>
-                            <Text style={{ fontSize: 11, fontFamily: 'Avenir', color: '#B8708A', marginBottom: 10 }}>Override detected price</Text>
-                            <View style={styles.priceRow}>
-                                <TouchableOpacity
-                                    style={styles.currencyButton}
-                                    onPress={() => setShowCurrencyPicker((p) => !p)}
-                                    activeOpacity={0.8}
-                                >
-                                    <Text style={styles.currencyButtonText}>
-                                        {selectedCurrency} {CURRENCIES.find(c => c.code === selectedCurrency)?.symbol}
-                                    </Text>
-                                    <Text style={styles.currencyChevron}>{showCurrencyPicker ? '▲' : '▼'}</Text>
-                                </TouchableOpacity>
+                            <Text style={{ fontSize: 12, fontFamily: 'Avenir', color: '#8A6B75', marginBottom: 6 }}>
+                                Price is auto-detected from the image.
+                            </Text>
+                            <TouchableOpacity
+                                onPress={() => { setShowManualPrice((p) => !p); if (showManualPrice) { setManualPriceText(''); setShowCurrencyPicker(false); } }}
+                                activeOpacity={0.7}
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: showManualPrice ? 10 : 0 }}
+                            >
+                                <Text style={{ fontSize: 12, fontFamily: 'Avenir', fontWeight: '700', color: '#FF95B6' }}>
+                                    {showManualPrice ? '▾ Hide manual override' : '▸ Enter price manually'}
+                                </Text>
+                            </TouchableOpacity>
 
-                                <TextInput
-                                    style={styles.priceInput}
-                                    placeholder="e.g. 12.99"
-                                    placeholderTextColor="#B8708A"
-                                    keyboardType="decimal-pad"
-                                    value={manualPriceText}
-                                    onChangeText={setManualPriceText}
-                                    returnKeyType="done"
-                                    accessibilityLabel="Manual price input"
-                                />
-                                {manualPriceText.length > 0 && (
-                                    <TouchableOpacity onPress={() => setManualPriceText('')} style={styles.priceClearBtn}>
-                                        <Text style={styles.priceClearText}>✕</Text>
-                                    </TouchableOpacity>
-                                )}
-                            </View>
+                            {showManualPrice && (
+                                <>
+                                    <View style={styles.priceRow}>
+                                        <TouchableOpacity
+                                            style={styles.currencyButton}
+                                            onPress={() => setShowCurrencyPicker((p) => !p)}
+                                            activeOpacity={0.8}
+                                        >
+                                            <Text style={styles.currencyButtonText}>
+                                                {selectedCurrency} {CURRENCIES.find(c => c.code === selectedCurrency)?.symbol}
+                                            </Text>
+                                            <Text style={styles.currencyChevron}>{showCurrencyPicker ? '▲' : '▼'}</Text>
+                                        </TouchableOpacity>
 
-                            {showCurrencyPicker && (
-                                <View style={styles.currencyDropdown}>
-                                    <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
-                                        {CURRENCIES.map((c) => (
-                                            <TouchableOpacity
-                                                key={c.code}
-                                                style={[
-                                                    styles.currencyOption,
-                                                    selectedCurrency === c.code && styles.currencyOptionActive,
-                                                ]}
-                                                onPress={() => {
-                                                    setSelectedCurrency(c.code);
-                                                    setShowCurrencyPicker(false);
-                                                }}
-                                                activeOpacity={0.7}
-                                            >
-                                                <Text style={styles.currencyOptionSymbol}>{c.symbol}</Text>
-                                                <Text style={styles.currencyOptionLabel}>{c.code} — {c.label}</Text>
-                                                {selectedCurrency === c.code && (
-                                                    <Text style={styles.currencyOptionCheck}>✓</Text>
-                                                )}
+                                        <TextInput
+                                            style={styles.priceInput}
+                                            placeholder="e.g. 12.99"
+                                            placeholderTextColor="#B8708A"
+                                            keyboardType="decimal-pad"
+                                            value={manualPriceText}
+                                            onChangeText={setManualPriceText}
+                                            returnKeyType="done"
+                                            accessibilityLabel="Manual price input"
+                                        />
+                                        {manualPriceText.length > 0 && (
+                                            <TouchableOpacity onPress={() => setManualPriceText('')} style={styles.priceClearBtn}>
+                                                <Text style={styles.priceClearText}>✕</Text>
                                             </TouchableOpacity>
-                                        ))}
-                                    </ScrollView>
-                                </View>
+                                        )}
+                                    </View>
+
+                                    {showCurrencyPicker && (
+                                        <View style={styles.currencyDropdown}>
+                                            <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                                                {CURRENCIES.map((c) => (
+                                                    <TouchableOpacity
+                                                        key={c.code}
+                                                        style={[
+                                                            styles.currencyOption,
+                                                            selectedCurrency === c.code && styles.currencyOptionActive,
+                                                        ]}
+                                                        onPress={() => {
+                                                            setSelectedCurrency(c.code);
+                                                            setShowCurrencyPicker(false);
+                                                        }}
+                                                        activeOpacity={0.7}
+                                                    >
+                                                        <Text style={styles.currencyOptionSymbol}>{c.symbol}</Text>
+                                                        <Text style={styles.currencyOptionLabel}>{c.code} — {c.label}</Text>
+                                                        {selectedCurrency === c.code && (
+                                                            <Text style={styles.currencyOptionCheck}>✓</Text>
+                                                        )}
+                                                    </TouchableOpacity>
+                                                ))}
+                                            </ScrollView>
+                                        </View>
+                                    )}
+                                </>
                             )}
                         </Animated.View>
 

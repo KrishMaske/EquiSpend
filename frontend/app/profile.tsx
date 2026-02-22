@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { clearAuth, getUser } from '../constants/auth';
 
 export default function ProfileScreen() {
     const router = useRouter();
@@ -31,6 +32,8 @@ export default function ProfileScreen() {
 
     const loadProfile = async () => {
         try {
+            // Load user data from auth if profile fields are empty
+            const user = await getUser();
             const data = await AsyncStorage.multiGet([
                 'profile_firstName',
                 'profile_lastName',
@@ -43,10 +46,13 @@ export default function ProfileScreen() {
             data.forEach(([key, value]) => {
                 if (value) map[key] = value;
             });
+
+            // Pre-fill email from auth user if not saved in profile yet
+            const authEmail = user?.email ?? '';
             setFirstName(map['profile_firstName'] ?? '');
             setLastName(map['profile_lastName'] ?? '');
             setUsername(map['profile_username'] ?? '');
-            setEmail(map['profile_email'] ?? '');
+            setEmail(map['profile_email'] ?? authEmail);
             setPhone(map['profile_phone'] ?? '');
             setPassword(map['profile_password'] ?? '');
         } catch (e) {
@@ -188,6 +194,17 @@ export default function ProfileScreen() {
                         <Text style={styles.saveButtonText}>
                             {saved ? '✓ Saved!' : 'Save Changes'}
                         </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.saveButton, { backgroundColor: '#DC2626', marginTop: 12 }]}
+                        onPress={async () => {
+                            await clearAuth();
+                            router.replace('/');
+                        }}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={styles.saveButtonText}>Log Out</Text>
                     </TouchableOpacity>
                 </Animated.View>
             </ScrollView>

@@ -14,15 +14,10 @@ import {
 import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { getSharedImage, getSharedLocation, getSharedManualPrice } from '../image-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import apiFetch from '../constants/fetch';
+import { getToken } from '../constants/auth';
 
 const { width } = Dimensions.get('window');
-
-// -------------------------------------------------------------------
-// IMPORTANT: Change this to your computer's local IP when running
-// the FastAPI backend on a physical device / emulator.
-// e.g. "http://192.168.1.42:8000"
-// -------------------------------------------------------------------
-const API_BASE_URL = 'http://10.74.228.241:8000';
 
 interface ScanResult {
     product_name?: string;
@@ -68,6 +63,7 @@ export default function ResultsScreen() {
                 formData.append('latitude', String(location.latitude));
                 formData.append('longitude', String(location.longitude));
                 if (location.city) formData.append('city', location.city);
+                if (location.state) formData.append('state', location.state);
                 if (location.country) formData.append('country', location.country);
             }
 
@@ -88,8 +84,16 @@ export default function ResultsScreen() {
                 } as any);
             }
 
-            const res = await fetch(`${API_BASE_URL}/scan`, {
+            // Attach auth token if available
+            const token = await getToken();
+            const headers: Record<string, string> = {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            const res = await apiFetch('/scan', {
                 method: 'POST',
+                headers,
                 body: formData,
             });
 
@@ -124,7 +128,7 @@ export default function ResultsScreen() {
             const history = raw ? JSON.parse(raw) : [];
             const now = new Date().toISOString();
             const loc = location?.city
-                ? `${location.city}${location.country ? `, ${location.country}` : ''}`
+                ? [location.city, location.state, location.country].filter(Boolean).join(', ')
                 : undefined;
 
             if (results.girl) {
@@ -171,7 +175,7 @@ export default function ResultsScreen() {
                 <ActivityIndicator color="#FF95B6" size="large" />
                 <Text style={styles.loadingTitle}>Analyzing Product…</Text>
                 <Text style={styles.loadingSubtitle}>
-                    Sending to Gemini AI for price analysis
+                    Running analysis algorithm
                 </Text>
                 {imageUri ? (
                     <Image source={{ uri: imageUri }} style={styles.loadingThumb} />
@@ -180,7 +184,7 @@ export default function ResultsScreen() {
                 {location?.city && (
                     <View style={styles.locationPill}>
                         <Text style={styles.locationPillText}>
-                            📍 {location.city}{location.country ? `, ${location.country}` : ''}
+                            📍 {[location.city, location.state, location.country].filter(Boolean).join(', ')}
                         </Text>
                     </View>
                 )}

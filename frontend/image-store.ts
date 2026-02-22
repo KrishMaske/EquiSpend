@@ -3,7 +3,7 @@
 // (which can break with long data URIs).
 
 let _imageUri: string | null = null;
-let _location: { latitude: number; longitude: number; city?: string; country?: string } | null = null;
+let _location: { latitude: number; longitude: number; city?: string; state?: string; country?: string } | null = null;
 let _manualPrice: number | null = null;
 let _currency: string = 'USD';
 
@@ -15,7 +15,7 @@ export function getSharedImage(): string | null {
     return _imageUri;
 }
 
-export function setSharedLocation(loc: { latitude: number; longitude: number; city?: string; country?: string } | null) {
+export function setSharedLocation(loc: { latitude: number; longitude: number; city?: string; state?: string; country?: string } | null) {
     _location = loc;
 }
 

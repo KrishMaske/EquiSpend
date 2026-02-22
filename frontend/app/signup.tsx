@@ -13,24 +13,71 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import apiFetch from '../constants/fetch';
+import { saveAuth } from '../constants/auth';
 
 export default function SignUpScreen() {
     const router = useRouter();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
     const handleSignUp = async () => {
-        // Save user info
-        try {
-            await AsyncStorage.setItem('user_name', name);
-            await AsyncStorage.setItem('user_email', email);
-            await AsyncStorage.setItem('user_logged_in', 'true');
-        } catch (e) {
-            // silently fail
+        if (!email.trim() || !password.trim()) {
+            setError('Please enter your email and password.');
+            return;
         }
-        // Replace stack so user can't go back to signup/home
-        router.replace('/scanner');
+        if (password.length < 6) {
+            setError('Password must be at least 6 characters.');
+            return;
+        }
+
+        setLoading(true);
+        setError('');
+
+        try {
+            const res = await apiFetch('/auth/signup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email.trim(), password }),
+            });
+
+            const json = await res.json();
+
+            if (!res.ok) {
+                throw new Error(json.detail ?? 'Sign up failed. Please try again.');
+            }
+
+            // After signup, automatically log the user in to get a token
+            const loginRes = await apiFetch('/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email.trim(), password }),
+            });
+
+            const loginJson = await loginRes.json();
+
+            if (loginRes.ok && loginJson.access_token) {
+                await saveAuth(loginJson.access_token, loginJson.user);
+            }
+
+            // Save additional user info
+            await AsyncStorage.setItem('user_name', name.trim());
+            await AsyncStorage.setItem('user_email', email.trim());
+            await AsyncStorage.setItem('user_logged_in', 'true');
+            await AsyncStorage.setItem('profile_firstName', name.trim().split(' ')[0] ?? '');
+            await AsyncStorage.setItem('profile_lastName', name.trim().split(' ').slice(1).join(' '));
+            await AsyncStorage.setItem('profile_email', email.trim());
+
+            // Replace stack so user can't go back to signup/home
+            router.replace('/scanner');
+        } catch (e: any) {
+            setError(e.message ?? 'Sign up failed. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -68,7 +115,7 @@ export default function SignUpScreen() {
                             placeholder="Enter your full name"
                             placeholderTextColor="#B8708A"
                             value={name}
-                            onChangeText={setName}
+                            onChangeText={(text) => { setName(text); setError(''); }}
                             autoCapitalize="words"
                             autoCorrect={false}
                             returnKeyType="next"
@@ -82,7 +129,7 @@ export default function SignUpScreen() {
                             placeholder="Enter your email"
                             placeholderTextColor="#B8708A"
                             value={email}
-                            onChangeText={setEmail}
+                            onChangeText={(text) => { setEmail(text); setError(''); }}
                             autoCapitalize="none"
                             autoCorrect={false}
                             keyboardType="email-address"
@@ -97,18 +144,24 @@ export default function SignUpScreen() {
                             placeholder="Create a password"
                             placeholderTextColor="#B8708A"
                             value={password}
-                            onChangeText={setPassword}
+                            onChangeText={(text) => { setPassword(text); setError(''); }}
                             secureTextEntry
                             returnKeyType="done"
+                            onSubmitEditing={handleSignUp}
                         />
                     </View>
 
+                    {error ? (
+                        <Text style={{ color: '#DC2626', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>{error}</Text>
+                    ) : null}
+
                     <TouchableOpacity
-                        style={styles.signUpButton}
+                        style={[styles.signUpButton, loading && { opacity: 0.6 }]}
                         onPress={handleSignUp}
                         activeOpacity={0.8}
+                        disabled={loading}
                     >
-                        <Text style={styles.signUpButtonText}>Sign Up</Text>
+                        <Text style={styles.signUpButtonText}>{loading ? 'Creating account…' : 'Sign Up'}</Text>
                     </TouchableOpacity>
                 </Animated.View>
 

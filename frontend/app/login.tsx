@@ -13,22 +13,50 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import apiFetch from '../constants/fetch';
+import { saveAuth } from '../constants/auth';
 
 export default function LoginScreen() {
     const router = useRouter();
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
     const handleLogin = async () => {
-        // Save login info
-        try {
-            await AsyncStorage.setItem('user_username', username);
-            await AsyncStorage.setItem('user_logged_in', 'true');
-        } catch (e) {
-            // silently fail
+        if (!email.trim() || !password.trim()) {
+            setError('Please enter your email and password.');
+            return;
         }
-        // Replace stack so user can't go back to login/home
-        router.replace('/scanner');
+
+        setLoading(true);
+        setError('');
+
+        try {
+            const res = await apiFetch('/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email.trim(), password }),
+            });
+
+            const json = await res.json();
+
+            if (!res.ok) {
+                throw new Error(json.detail ?? 'Invalid email or password');
+            }
+
+            // Store auth token and user data
+            await saveAuth(json.access_token, json.user);
+            await AsyncStorage.setItem('user_email', email.trim());
+            await AsyncStorage.setItem('user_logged_in', 'true');
+
+            // Replace stack so user can't go back to login/home
+            router.replace('/scanner');
+        } catch (e: any) {
+            setError(e.message ?? 'Login failed. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -60,15 +88,16 @@ export default function LoginScreen() {
                 {/* Form */}
                 <Animated.View entering={FadeInDown.delay(300).duration(600)} style={styles.formContainer}>
                     <View style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>Username</Text>
+                        <Text style={styles.inputLabel}>Email Address</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="Enter your username"
+                            placeholder="Enter your email"
                             placeholderTextColor="#B8708A"
-                            value={username}
-                            onChangeText={setUsername}
+                            value={email}
+                            onChangeText={(text) => { setEmail(text); setError(''); }}
                             autoCapitalize="none"
                             autoCorrect={false}
+                            keyboardType="email-address"
                             returnKeyType="next"
                         />
                     </View>
@@ -80,22 +109,28 @@ export default function LoginScreen() {
                             placeholder="Enter your password"
                             placeholderTextColor="#B8708A"
                             value={password}
-                            onChangeText={setPassword}
+                            onChangeText={(text) => { setPassword(text); setError(''); }}
                             secureTextEntry
                             returnKeyType="done"
+                            onSubmitEditing={handleLogin}
                         />
                     </View>
+
+                    {error ? (
+                        <Text style={{ color: '#DC2626', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>{error}</Text>
+                    ) : null}
 
                     <TouchableOpacity style={styles.forgotPassword} activeOpacity={0.7}>
                         <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        style={styles.loginButton}
+                        style={[styles.loginButton, loading && { opacity: 0.6 }]}
                         onPress={handleLogin}
                         activeOpacity={0.8}
+                        disabled={loading}
                     >
-                        <Text style={styles.loginButtonText}>Log In</Text>
+                        <Text style={styles.loginButtonText}>{loading ? 'Logging in…' : 'Log In'}</Text>
                     </TouchableOpacity>
                 </Animated.View>
 
