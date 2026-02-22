@@ -1,6 +1,7 @@
 import json
 import os
 import statistics
+import urllib.request
 from config.settings import supabase, SERP_KEY, gemini, model
 from google.genai import types
 from serpapi import GoogleSearch
@@ -33,18 +34,11 @@ def search_serp(query: str, user_location: str, mode: str = "general", fallback_
     Returns the list of shopping results (may be empty).
     Tries the primary query first, then an optional fallback.
 
-    MODE-AWARE LOCATION:
-    - Pink Tax & General → search in the user's actual market (gl from location).
-    - Tourist Tax → search in reference market (US) to get standard prices,
-      since the user is at a tourist location and we want the normal retail price.
+    All modes search in the user's actual market (gl from location).
+    Tourist Tax: compares the local online market price against the inflated price the tourist paid.
     """
-    if mode == "travel":
-        # Tourist Tax: always use US as the reference market
-        gl_code = "us"
-        hl_code = "en"
-        print(f"🌍 Tourist Tax mode → forcing gl=us (reference market)")
-    else:
-        gl_code, hl_code = get_location_codes(user_location)
+    gl_code, hl_code = get_location_codes(user_location)
+    print(f"🌍 Mode={mode} → searching gl={gl_code} (user's market)")
 
     for attempt, q in enumerate([query, fallback_query], 1):
         if not q:
@@ -108,7 +102,8 @@ def check_cache(product_data: dict, user_location: str, mode: str):
 
 
 def add_to_cache(product_data: dict, user_location: str, user_price: float,
-                 comparison_price: float, store_name: str = None, is_pink_tax: bool = False):
+                 comparison_price: float, store_name: str = None, is_pink_tax: bool = False,
+                 comparable_item_name: str = None, item_link: str = None, image_link: str = None):
     """
     Adds a new entry to the cache in Supabase.
     Checks for duplicates before inserting.
@@ -155,6 +150,9 @@ def add_to_cache(product_data: dict, user_location: str, user_price: float,
         "country": country,
         "domestic_price": comparison_price,
         "brand": brand,
+        "comparable_item_name": comparable_item_name,
+        "item_link": item_link,
+        "image_link": image_link,
     }
 
     try:
@@ -317,7 +315,7 @@ def pick_best_result(shopping_results: list, product_data: dict, mode: str) -> t
     return best, similar_items
 
 
-def run_comparison_analysis(product_data: dict, user_price: float, mode: str, user_location: str) -> dict:
+def run_comparison_analysis(product_data: dict, user_price: float, mode: str, user_location: str, user_currency: str = "USD") -> dict:
     """
     MASTER ORCHESTRATOR — New comparison-based pipeline.
 
@@ -329,17 +327,45 @@ def run_comparison_analysis(product_data: dict, user_price: float, mode: str, us
 
     Returns dict with: comparison_price, comparable_product, source
     """
-    print(f"\n🚀 Starting Comparison Analysis — mode={mode}, location={user_location}")
+    print(f"\n🚀 Starting Comparison Analysis — mode={mode}, location={user_location}, currency={user_currency}")
     print(f"📦 Product: {product_data.get('brand')} {product_data.get('product_name')}")
     print(f"💰 User price: {user_price}")
+
+    # Determine SERP currency based on user's location gl_code
+    gl_code, _ = get_location_codes(user_location)
+    
+    GL_CURRENCY_MAP = {
+        "us": "USD", "in": "INR", "uk": "GBP", "ca": "CAD",
+        "au": "AUD", "de": "EUR", "fr": "EUR", "jp": "JPY"
+    }
+    serp_currency = GL_CURRENCY_MAP.get(gl_code, "USD")
+    
+    # Convert SERP prices to user's selected currency if they differ
+    exchange_rate = 1.0
+    if serp_currency != user_currency:
+        try:
+            url = f"https://open.er-api.com/v6/latest/{serp_currency}"
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=5) as response:
+                data = json.loads(response.read().decode())
+                exchange_rate = data.get("rates", {}).get(user_currency, 1.0)
+                print(f"💱 Currency conversion: 1 {serp_currency} = {exchange_rate} {user_currency}")
+        except Exception as e:
+            print(f"⚠️ Error fetching exchange rate: {e}")
+    else:
+        print(f"💱 No conversion needed — SERP and user both use {user_currency}")
 
     # ── Step 1: Check cache ──────────────────────────────────────────
     cached = check_cache(product_data, user_location, mode)
     if cached:
+        comp_price = float(cached.get("domestic_price", 0)) * exchange_rate
         return {
-            "comparison_price": float(cached.get("domestic_price", 0)),
-            "comparable_product": cached.get("product_name", "Cached result"),
-            "source": "cache",
+            "comparison_price": comp_price,
+            "suggestion_price": comp_price,
+            "comparable_product": cached.get("comparable_item_name") or cached.get("product_name", "Cached result"),
+            "source": cached.get("store_name") or "cache",
+            "suggestion_image": cached.get("image_link"),
+            "suggestion_link": cached.get("item_link"),
         }
 
     # ── Step 2: Generate comparison search query via Gemini ──────────
@@ -391,18 +417,22 @@ def run_comparison_analysis(product_data: dict, user_price: float, mode: str, us
             # The median finds the exact middle of the plausible prices. 
             # It is practically immune to lingering right-skewed outliers.
             if plausible_prices:
-                comparison_price = statistics.median(plausible_prices)
+                median_price = statistics.median(plausible_prices)
                 
                 # Find the item whose price is closest to the median
                 closest_item = min(
                     [item for item in similar_items if float(item.get("extracted_price")) in plausible_prices],
-                    key=lambda x: abs(float(x.get("extracted_price")) - comparison_price)
+                    key=lambda x: abs(float(x.get("extracted_price")) - median_price)
                 )
+                
+                # The comparison price (used for math) is the exact price of the closest item
+                comparison_price = float(closest_item.get("extracted_price"))
             else:
                 comparison_price = top_price
                 closest_item = top
             
-            suggestion_price = float(closest_item.get("extracted_price"))
+            # We use the 'closest_item' for the suggestion so the image/link matches the math
+            suggestion_price = comparison_price
             
             comparable_product = closest_item.get("title", comparable_desc or "Unknown")
             store_name = closest_item.get("source")
@@ -410,7 +440,8 @@ def run_comparison_analysis(product_data: dict, user_price: float, mode: str, us
             suggestion_link = closest_item.get("link") or closest_item.get("product_link")
             
             print(f"✅ Comparison product: '{comparable_product}' at ${suggestion_price} from {store_name}")
-            print(f"📊 Median market price of {len(plausible_prices)} valid items: ${comparison_price:.2f}")
+            print(f"📊 Median market price of {len(plausible_prices)} valid items: ${median_price:.2f}")
+            print(f"🎯 Selected closest item price: ${comparison_price:.2f}")
             if suggestion_image:
                 print(f"🖼️  Thumbnail: {suggestion_image[:80]}...")
         else:
@@ -420,8 +451,14 @@ def run_comparison_analysis(product_data: dict, user_price: float, mode: str, us
 
     # ── Step 4: Determine markup ─────────────────────────────────────
     is_pink_tax = False
-    if comparison_price and user_price > float(comparison_price):
-        is_pink_tax = True
+    converted_comparison_price = None
+    converted_suggestion_price = None
+    
+    if comparison_price:
+        converted_comparison_price = float(comparison_price) * exchange_rate
+        converted_suggestion_price = float(suggestion_price) * exchange_rate
+        if user_price > converted_comparison_price:
+            is_pink_tax = True
 
     # ── Step 5: Cache the result ─────────────────────────────────────
     if comparison_price:
@@ -429,14 +466,17 @@ def run_comparison_analysis(product_data: dict, user_price: float, mode: str, us
             product_data=product_data,
             user_location=user_location,
             user_price=user_price,
-            comparison_price=float(comparison_price),
+            comparison_price=float(comparison_price), # Cache the RAW SERP price
             store_name=store_name,
             is_pink_tax=is_pink_tax,
+            comparable_item_name=comparable_product,
+            item_link=suggestion_link,
+            image_link=suggestion_image,
         )
 
     return {
-        "comparison_price": float(comparison_price) if comparison_price else 0,
-        "suggestion_price": float(suggestion_price) if suggestion_price else 0,
+        "comparison_price": converted_comparison_price if converted_comparison_price else 0,
+        "suggestion_price": converted_suggestion_price if converted_suggestion_price else 0,
         "comparable_product": comparable_product,
         "source": store_name or "none",
         "suggestion_image": suggestion_image,

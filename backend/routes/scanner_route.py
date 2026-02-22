@@ -128,23 +128,23 @@ async def analyze_endpoint(
         if mode == "both":
             # ── Run TWO separate analyses: Pink Tax + Tourist Tax ──
             print("🔀 Both mode: running Pink Tax analysis...")
-            girl_result = run_comparison_analysis(product_data, price, "girl", user_location)
+            girl_result = run_comparison_analysis(product_data, price, "girl", user_location, currency or "USD")
             girl_formatted = format_result(girl_result, price)
 
             print("🔀 Both mode: running Tourist Tax analysis...")
-            travel_result = run_comparison_analysis(product_data, price, "travel", user_location)
+            travel_result = run_comparison_analysis(product_data, price, "travel", user_location, currency or "USD")
             travel_formatted = format_result(travel_result, price)
 
             return {"status": "success", "data": {"girl": girl_formatted, "travel": travel_formatted}}
 
         elif mode == "general":
-            result = run_comparison_analysis(product_data, price, mode, user_location)
+            result = run_comparison_analysis(product_data, price, mode, user_location, currency or "USD")
             formatted = format_result(result, price)
             return {"status": "success", "data": {"general": formatted}}
 
         else:
             # Single mode: 'girl' or 'travel'
-            result = run_comparison_analysis(product_data, price, mode, user_location)
+            result = run_comparison_analysis(product_data, price, mode, user_location, currency or "USD")
             formatted = format_result(result, price)
             return {"status": "success", "data": formatted}
 
