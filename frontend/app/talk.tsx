@@ -1,104 +1,154 @@
-import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import React, { useState, useRef, useCallback } from 'react';
+import {
+    View,
+    StyleSheet,
+    TouchableOpacity,
+    Text,
+    Platform,
+} from 'react-native';
 import { WebView } from 'react-native-webview';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getSharedLocation } from '../image-store';
+import { getSharedLocation, getSharedManualPrice } from '../image-store';
+
+const AGENT_ID = 'agent_2901kj1h8knpern8x2yqxxdbkz9n';
 
 export default function TalkScreen() {
     const router = useRouter();
+    const params = useLocalSearchParams<{
+        productName?: string;
+        askingPrice?: string;
+        fairPrice?: string;
+    }>();
+
     const loc = getSharedLocation();
-    const locationStr = loc?.country || loc?.city || 'United States';
+    const { currency } = getSharedManualPrice();
+    const locationStr = [loc?.city, loc?.state, loc?.country].filter(Boolean).join(', ') || 'Unknown';
+    const productName = params.productName || 'this item';
+    const askingPrice = params.askingPrice || '';
+    const fairPrice = params.fairPrice || '';
+    const hasPriceData = !!(askingPrice && fairPrice);
+
+    // Build dynamic variables JSON for the widget
+    // Widget uses JSON.parse() internally — must be raw JSON, NOT HTML-encoded
+    const dynamicVars = JSON.stringify({
+        location: locationStr,
+        product_name: productName,
+        asking_price: askingPrice,
+        fair_price: fairPrice,
+        currency: currency || 'USD',
+    }).replace(/'/g, "\\'");
+
+    const productLine = askingPrice && fairPrice
+        ? `${productName} · Asked ${currency || '$'} ${askingPrice} · Fair ${currency || '$'} ${fairPrice}`
+        : productName;
 
     const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
-            <style>
-                :root {
-                    --bg-dark: #FFF0F3;
-                    --form-bg: rgba(255, 255, 255, 0.8);
-                }
-                body {
-                    margin: 0;
-                    padding: 0;
-                    background-color: var(--bg-dark);
-                    background-image: 
-                        radial-gradient(circle at 50% 50%, rgba(255, 149, 182, 0.3), transparent 60%);
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    height: 100vh;
-                    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
-                    color: #4A2035;
-                }
-                
-                .header-container {
-                    text-align: center;
-                    margin-bottom: 30px;
-                    z-index: 10;
-                }
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #FFF6F8;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+            color: #4A2035;
+            overflow: hidden;
+        }
 
-                h1 {
-                    font-size: 36px;
-                    font-weight: 800;
-                    margin: 0;
-                    color: #D46A92;
-                    letter-spacing: -1px;
-                }
+        .hero {
+            text-align: center;
+            margin-bottom: 24px;
+            padding: 0 24px;
+        }
+        .hero-emoji { font-size: 48px; margin-bottom: 12px; }
+        .hero h1 {
+            font-size: 28px;
+            font-weight: 800;
+            color: #D46A92;
+            letter-spacing: -0.5px;
+            line-height: 1.2;
+        }
+        .hero .subtitle {
+            font-size: 14px;
+            color: #8A6B75;
+            margin-top: 6px;
+            font-weight: 500;
+        }
 
-                .subtitle {
-                    font-size: 16px;
-                    color: #8A6B75;
-                    margin-top: 8px;
-                    font-weight: 500;
-                }
+        .instructions {
+            background: rgba(255,255,255,0.85);
+            border: 1px solid rgba(255,149,182,0.25);
+            padding: 16px 20px;
+            border-radius: 16px;
+            font-size: 14px;
+            color: #4A2035;
+            text-align: center;
+            max-width: 300px;
+            margin-bottom: 32px;
+            line-height: 1.5;
+            box-shadow: 0 2px 20px rgba(255,149,182,0.1);
+        }
+        .instructions strong { color: #D46A92; }
 
-                .instructions {
-                    background: var(--form-bg);
-                    border: 1px solid rgba(255, 149, 182, 0.3);
-                    padding: 20px;
-                    border-radius: 20px;
-                    backdrop-filter: blur(10px);
-                    font-size: 15px;
-                    color: #4A2035;
-                    text-align: center;
-                    max-width: 280px;
-                    margin-bottom: 40px;
-                    box-shadow: 0 4px 30px rgba(255, 149, 182, 0.15);
-                }
+        .product-tag {
+            background: rgba(255,149,182,0.12);
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 12px;
+            color: #8A6B75;
+            margin-bottom: 20px;
+            max-width: 280px;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
 
-                /* Override widget styles to match our premium theme and center it */
-                elevenlabs-convai {
-                    z-index: 20;
-                    --elevenlabs-bg: #FFFFFF;
-                    --elevenlabs-primary: #FF95B6;
-                    --elevenlabs-text: #4A2035;
-                    --elevenlabs-border-radius: 24px;
-                    transform: scale(1.1); /* Make it slightly larger */
-                }
-            </style>
-            <script src="https://elevenlabs.io/convai-widget/index.js" async></script>
-        </head>
-        <body>
-            <div class="header-container">
-                <h1>Haggle in <br/>${locationStr}</h1>
-                <div class="subtitle">Your AI negotiation partner</div>
-            </div>
+        elevenlabs-convai {
+            --elevenlabs-bg: #FFFFFF;
+            --elevenlabs-primary: #FF95B6;
+            --elevenlabs-text: #4A2035;
+            --elevenlabs-border-radius: 24px;
+            transform: scale(1.15);
+        }
+    </style>
+    <script src="https://elevenlabs.io/convai-widget/index.js" async></script>
+</head>
+<body>
+    <div class="hero">
+        <div class="hero-emoji">🤝</div>
+        <h1>Haggle in<br/>${locationStr}</h1>
+        <div class="subtitle">AI negotiation agent</div>
+    </div>
 
-            <div class="instructions">
-                Tap to connect, then hand your phone to the shopkeeper.
-            </div>
+    <div class="product-tag">${productLine}</div>
 
-            <elevenlabs-convai agent-id="agent_2901kj1h8knpern8x2yqxxdbkz9n" action-text="Start Haggling" dynamic-variables='{"location": "${locationStr}"}'></elevenlabs-convai>
-        </body>
-        </html>
+    <div class="instructions">
+        ${hasPriceData
+            ? `Tap the button to connect, then <strong>hand your phone to the shopkeeper</strong>. The AI will negotiate in their language.`
+            : `<strong style="color:#DC2626">⚠️ No price data!</strong><br/>Go back, scan a product first, then tap <strong>Haggle This Price</strong> from the results page for the best experience.`
+        }
+    </div>
+
+    <elevenlabs-convai
+        agent-id="${AGENT_ID}"
+        action-text="Start Haggling"
+        dynamic-variables='${dynamicVars}'
+    ></elevenlabs-convai>
+</body>
+</html>
     `;
 
     return (
         <View style={styles.container}>
+            {/* Native header */}
             <View style={styles.header}>
                 <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
                     <Ionicons name="chevron-down" size={28} color="#D46A92" />
@@ -106,6 +156,8 @@ export default function TalkScreen() {
                 <Text style={styles.title}>AI Negotiator</Text>
                 <View style={{ width: 28 }} />
             </View>
+
+            {/* WebView with ElevenLabs convai widget */}
             <WebView
                 source={{ html: htmlContent, baseUrl: 'https://localhost' }}
                 originWhitelist={['*']}
@@ -114,6 +166,7 @@ export default function TalkScreen() {
                 mediaPlaybackRequiresUserAction={false}
                 javaScriptEnabled={true}
                 domStorageEnabled={true}
+                mediaCapturePermissionGrantType="grant"
             />
         </View>
     );
@@ -122,18 +175,18 @@ export default function TalkScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FFF0F3',
+        backgroundColor: '#FFF6F8',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingTop: 60,
+        paddingTop: Platform.OS === 'ios' ? 60 : 44,
         paddingHorizontal: 20,
-        paddingBottom: 20,
-        backgroundColor: '#FFF0F3',
+        paddingBottom: 16,
+        backgroundColor: '#FFF6F8',
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 149, 182, 0.2)',
+        borderBottomColor: 'rgba(255, 149, 182, 0.15)',
     },
     title: {
         color: '#D46A92',
@@ -145,6 +198,6 @@ const styles = StyleSheet.create({
     },
     webview: {
         flex: 1,
-        backgroundColor: '#FFF0F3',
-    }
+        backgroundColor: '#FFF6F8',
+    },
 });

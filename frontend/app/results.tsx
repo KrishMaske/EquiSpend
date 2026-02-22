@@ -733,6 +733,28 @@ export default function ResultsScreen() {
                         </Text>
                     </View>
                 )}
+
+                {/* Haggle button — only show when overpriced */}
+                {hasTax && (label === 'Tourist Tax' || label === 'Price Gouging') && (
+                    <TouchableOpacity
+                        style={styles.haggleBtn}
+                        activeOpacity={0.7}
+                        onPress={() => router.push({
+                            pathname: '/talk',
+                            params: {
+                                productName,
+                                askingPrice: String(priceScanned),
+                                fairPrice: String(fairPrice),
+                            },
+                        })}
+                    >
+                        <Text style={styles.haggleBtnEmoji}>🤝</Text>
+                        <View>
+                            <Text style={styles.haggleBtnText}>Haggle This Price</Text>
+                            <Text style={styles.haggleBtnSub}>AI negotiates down to {currencySymbol}{Number(fairPrice).toFixed(2)}</Text>
+                        </View>
+                    </TouchableOpacity>
+                )}
             </Animated.View>
         );
     };
@@ -1390,5 +1412,30 @@ const styles = StyleSheet.create({
         color: '#FFF',
         fontSize: 20,
         fontWeight: 'bold',
+    },
+    haggleBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(59, 130, 246, 0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(59, 130, 246, 0.2)',
+        borderRadius: 16,
+        padding: 14,
+        marginHorizontal: 16,
+        marginBottom: 16,
+        gap: 12,
+    },
+    haggleBtnEmoji: {
+        fontSize: 28,
+    },
+    haggleBtnText: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#3B82F6',
+    },
+    haggleBtnSub: {
+        fontSize: 12,
+        color: '#6B7280',
+        marginTop: 2,
     },
 });
