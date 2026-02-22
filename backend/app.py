@@ -3,11 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from routes.db_route import router as db_router
 from routes.scanner_route import router as scanner
+from routes.auth_route import router as auth_router
 
 app = FastAPI()
 
 app.include_router(db_router)
 app.include_router(scanner)
+app.include_router(auth_router)
 
 @app.get("/")
 def root():

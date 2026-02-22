@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Form, UploadFile, File
+from fastapi import APIRouter, Form, UploadFile, File, HTTPException
 from typing import Optional
 import io
 from PIL import Image
+from utils.gemini import build_prompt, analyze_image
 
 router = APIRouter()
 
@@ -41,13 +42,14 @@ async def scan_endpoint(
     original_size = pil_image.size
     optimized_image = optimize_image(pil_image)
     
-    message = {
-        "message": "Image received and preprocessed successfully",
-        "filename": image.filename,
-        "content_type": image.content_type,
-        "original_size": original_size,
-        "optimized_size": optimized_image.size,
-        "mode": mode,
-        "location": location,
-        "currency": currency
-    }
+    try:
+        prompt = build_prompt()
+        analysis_result = analyze_image(optimized_image, prompt)
+        
+        return {
+            "status": "success",
+            "data": analysis_result
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error analyzing image: {str(e)}")

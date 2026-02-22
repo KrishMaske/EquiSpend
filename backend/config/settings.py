@@ -16,3 +16,5 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 gemini = genai.Client(api_key=GEMINI_API_KEY)
 model = "gemini-2.5-flash"
+
+SERP_KEY = os.getenv("SERP_KEY")
