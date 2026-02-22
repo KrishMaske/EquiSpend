@@ -1,20 +1,113 @@
-# 💰 EquiSpend — Real-Time Pricing Equity Scanner
+# 💰 EquiSpend — AI-Powered Price Gouging Detector
 
-**EquiSpend** is a cross-platform mobile + web app that uses **AI-powered image analysis** to detect pricing inequity in real time. Point your camera at any product, and EquiSpend will tell you if you're being overcharged due to the **Pink Tax** (gender-based pricing) or the **Tourist Tax** (location-based markup).
+> **Snap a photo. Get the truth. Stop getting gouged.**
 
-Built with **React Native (Expo)** on the frontend and **FastAPI + Gemini AI** on the backend.
+Price gouging isn't just a disaster-day problem — it happens every day on store shelves. EquiSpend is a cross-platform mobile app that uses **AI image recognition** and **live Google Shopping data** to catch price gouging in real time. Point your camera at any product, and EquiSpend instantly compares what you're being charged against the **true market price** — exposing hidden markups before you pay.
+
+Two built-in filters target the most common forms of everyday gouging:
+- **🚺 Pink Tax Filter** — Detects gender-based price gouging, where women's products are marked up over identical men's equivalents
+- **🌍 Tourist Tax Filter** — Detects location-based price gouging, where vendors inflate prices for travelers who don't know local rates
+
+**Built with React Native (Expo) · FastAPI · Google Gemini 2.5 Flash · SerpAPI · Supabase**
+
+---
+
+## 🧠 The Problem
+
+**Price gouging is everywhere — and it's invisible.** Without real-time market data in your hand at the point of sale, you have no way to know if the price on the shelf is fair. Retailers, resellers, and vendors exploit this information gap every day:
+
+- **Gender-Based Gouging ("Pink Tax")** — Women pay an average of **13% more** for nearly identical personal care products. Same formula, different color, higher price. This affects razors, shampoo, deodorant, body wash, and more.
+- **Location-Based Gouging ("Tourist Tax")** — Vendors near tourist areas routinely mark up everyday items by **30–300%**, exploiting the fact that visitors don't know what things should cost locally.
+- **General Overpricing** — Even outside these categories, individual stores frequently price items well above the regional market rate.
+
+Consumers have no tool to check prices in the moment — until now.
+
+---
+
+## 💡 The Solution
+
+EquiSpend puts a **price gouging detector in your pocket**:
+
+1. 📷 **Snap** a photo of any product on the shelf
+2. 🤖 **Gemini AI** identifies the product, brand, volume, and gender marketing
+3. 🔍 **SerpAPI** pulls live Google Shopping prices for your region
+4. 📊 **Statistical engine** (median pricing, anchor filtering, bulk/delivery app penalties) calculates the true fair market price
+5. 💱 **Live currency conversion** ensures accurate comparisons anywhere in the world
+6. ⚡ **Instant verdict** — see exactly how much you're being gouged, the fair price, and a direct link to buy it cheaper
+
+Apply the **Pink Tax filter** to catch gender-based gouging, the **Tourist Tax filter** for location-based gouging, or run **both** simultaneously.
+
+---
+
+## 🎬 Demo Flow
+
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────────────┐     ┌──────────────────┐
+│  📷 Scanner  │ ──▶ │  🤖 Identify │ ──▶ │  💵 Enter Your Price │ ──▶ │  📊 Results      │
+│  Take photo  │     │  Gemini AI   │     │  Confirm product     │     │  Fair market price│
+│  Set location│     │  returns     │     │  Apply filter(s):    │     │  Gouging amount   │
+│              │     │  product info│     │  Pink / Tourist /Both│     │  Suggested alt    │
+└──────────────┘     └──────────────┘     └──────────────────────┘     │  Direct buy link  │
+                                                                       └──────────────────┘
+```
 
 ---
 
 ## 🎯 Features
 
-- **🚺 Girl Mode** — Detects the "Pink Tax" by comparing female-marketed products to their male/generic equivalents
-- **🌍 Travel Mode** — Detects the "Tourist Tax" by comparing tourist-area prices to fair local prices
-- **📍 Location-Aware** — Uses GPS + reverse geocoding to provide region-specific price analysis
-- **📷 Camera + Upload** — Snap a photo or upload from gallery (works on iOS, Android, and Web)
-- **🤖 Gemini AI** — Powered by Google's Gemini 2.5 Flash for fast, accurate multimodal analysis
-- **💾 Scan History** — All scans are persisted to a local SQLite database
-- **🔌 Extensible** — Plug in CSV/API data sources (Numbeo, SerpApi, Open Beauty Facts) for enhanced accuracy
+| Feature | Description |
+|---------|-------------|
+| � **Price Gouging Detection** | Compares the price you see on the shelf against live Google Shopping market data to expose unfair markups |
+| 🚺 **Pink Tax Filter** | Filters for gender-based gouging — compares female-marketed products to male/generic equivalents via AI-generated queries |
+| 🌍 **Tourist Tax Filter** | Filters for location-based gouging — searches the user's actual local market to find the true price vs. the inflated tourist price |
+| 🔄 **Combined Filter** | Run Pink Tax + Tourist Tax filters simultaneously on a single scan |
+| 📍 **Location-Aware** | GPS auto-detection + manual override. SERP results are localized (`gl=in` for India, `gl=fr` for France, etc.) |
+| 💱 **Multi-Currency** | 20+ currencies supported. Live exchange rates via [open.er-api.com](https://open.er-api.com). Prices auto-convert to user's currency |
+| 📊 **Statistical Pricing** | Median-based pricing with Anchor Filter (2.5x cap), bulk listing penalties (-10), and delivery app penalties (-5) |
+| 🔗 **Direct Product Links** | Every alternative includes a clickable buy link with thumbnail image — act on gouging instantly |
+| 💾 **Smart Caching** | Results cached in Supabase with currency tagging to avoid redundant API calls |
+| 📜 **Scan History** | Persistent local history of all past scans with location, prices, and timestamps |
+| 🔐 **Auth** | Supabase-backed user authentication (signup/login) |
+| 🖼️ **Image Zoom** | Full-screen zoomable modal for product and suggestion images |
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    FRONTEND                         │
+│           React Native (Expo SDK 54)                │
+│                                                     │
+│  Scanner ──▶ Results ──▶ History ──▶ Profile        │
+│  expo-camera   Animated    AsyncStorage   Auth      │
+│  expo-location Reanimated                           │
+│  expo-image-picker                                  │
+└────────────────────┬────────────────────────────────┘
+                     │ REST API (FormData)
+                     ▼
+┌─────────────────────────────────────────────────────┐
+│                    BACKEND                          │
+│              FastAPI (Python 3.10+)                 │
+│                                                     │
+│  POST /scan/identify   ──▶  Gemini 2.5 Flash       │
+│  POST /scan/analyze    ──▶  Gemini → SerpAPI → Stats│
+│                                                     │
+│  ┌─────────┐  ┌──────────┐  ┌───────────────────┐  │
+│  │ Gemini  │  │ SerpAPI  │  │ Exchange Rate API │  │
+│  │ Vision  │  │ Google   │  │ open.er-api.com   │  │
+│  │ + Query │  │ Shopping │  │ Live FX rates     │  │
+│  └─────────┘  └──────────┘  └───────────────────┘  │
+│                     │                               │
+│                     ▼                               │
+│            ┌─────────────────┐                      │
+│            │    Supabase     │                      │
+│            │  PostgreSQL DB  │                      │
+│            │  cached_products│                      │
+│            │  users / auth   │                      │
+│            └─────────────────┘                      │
+└─────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -22,269 +115,270 @@ Built with **React Native (Expo)** on the frontend and **FastAPI + Gemini AI** o
 
 ```
 EquiSpend/
-├── backend/                  # FastAPI backend
-│   ├── main.py               # API server (Gemini AI + SQLite)
-│   ├── .env                  # API keys (not committed to git)
-│   ├── test_api.py           # Quick API test script
-│   ├── config/               # Settings & config
-│   └── data/                 # CSV data sources (future)
+├── backend/                     # FastAPI backend
+│   ├── app.py                   # Entry point (CORS, routers)
+│   ├── requirements.txt         # Python dependencies
+│   ├── config/
+│   │   └── settings.py          # Supabase, Gemini, SerpAPI keys
+│   ├── routes/
+│   │   ├── scanner_route.py     # /scan/identify + /scan/analyze
+│   │   ├── auth_route.py        # Authentication endpoints
+│   │   └── db_route.py          # Database operations
+│   └── utils/
+│       ├── gemini.py            # Gemini AI prompts & analysis
+│       ├── logic.py             # Pricing engine (SERP, scoring, median, cache)
+│       ├── auth.py              # Auth utilities
+│       ├── prompt.json          # Primary Gemini prompt template
+│       └── failover_prompt.json # Fallback prompt template
 │
-├── frontend/                 # React Native (Expo) app
-│   ├── app/                  # Expo Router screens
-│   │   ├── _layout.tsx       # Navigation layout
-│   │   ├── index.tsx         # Splash / home screen
-│   │   ├── scanner.tsx       # Camera + mode selection
-│   │   └── results.tsx       # Analysis results display
-│   ├── image-store.ts        # Shared in-memory store
-│   ├── app.json              # Expo config
-│   └── package.json          # Node dependencies
+├── frontend/                    # React Native (Expo) app
+│   ├── app/
+│   │   ├── _layout.tsx          # Navigation layout
+│   │   ├── index.tsx            # Splash / onboarding
+│   │   ├── scanner.tsx          # Camera + mode select + location
+│   │   ├── results.tsx          # Results display (animated)
+│   │   ├── history.tsx          # Scan history
+│   │   ├── login.tsx            # Login screen
+│   │   ├── signup.tsx           # Signup screen
+│   │   └── profile.tsx          # User profile
+│   ├── constants/
+│   │   ├── api.ts               # API base URL config
+│   │   ├── auth.ts              # Token management
+│   │   ├── fetch.ts             # Authenticated fetch wrapper
+│   │   ├── theme.ts             # Color palette
+│   │   └── currencies.ts        # Currency codes & symbols
+│   ├── image-store.ts           # Shared in-memory state (image, location, price)
+│   └── package.json
 │
-├── .gitignore
-└── README.md                 # ← You are here
+└── README.md
 ```
-
----
-
-## 🚀 Prerequisites
-
-Make sure you have the following installed before getting started:
-
-| Tool | Version | Install Link |
-|------|---------|-------------|
-| **Node.js** | ≥ 18.x | [nodejs.org](https://nodejs.org/) |
-| **npm** | ≥ 9.x | Comes with Node.js |
-| **Python** | ≥ 3.10 | [python.org](https://www.python.org/downloads/) |
-| **pip** | ≥ 22.x | Comes with Python |
-| **Expo CLI** | Latest | Installed via `npx` (no global install needed) |
-| **Expo Go** *(mobile only)* | Latest | [iOS App Store](https://apps.apple.com/app/expo-go/id982107779) / [Google Play](https://play.google.com/store/apps/details?id=host.exp.exponent) |
 
 ---
 
 ## ⚡ Quick Start
 
-### 1. Clone the repo
+### Prerequisites
+
+| Tool | Version | Link |
+|------|---------|------|
+| **Node.js** | ≥ 18.x | [nodejs.org](https://nodejs.org/) |
+| **Python** | ≥ 3.10 | [python.org](https://python.org/) |
+| **Expo Go** *(mobile)* | Latest | [App Store](https://apps.apple.com/app/expo-go/id982107779) / [Google Play](https://play.google.com/store/apps/details?id=host.exp.exponent) |
+
+### 1. Clone
 
 ```bash
 git clone https://github.com/KrishMaske/EquiSpend.git
 cd EquiSpend
 ```
 
-### 2. Set up the Backend
+### 2. Backend
 
 ```bash
-# Navigate to backend
 cd backend
-
-# (Recommended) Create a virtual environment
 python -m venv venv
 
-# Activate it
-# Windows:
+# Windows
 venv\Scripts\activate
-# macOS / Linux:
+# macOS / Linux
 source venv/bin/activate
 
-# Install Python dependencies
-pip install fastapi uvicorn python-multipart python-dotenv google-generativeai pillow
+pip install -r requirements.txt
 ```
 
-### 3. Configure the API Key
-
-Create a `backend/.env` file (or edit the existing one):
+Create `backend/.env`:
 
 ```env
-GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_API_KEY=your_gemini_api_key
+SERP_KEY=your_serpapi_key
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_KEY=your_supabase_anon_key
 ```
 
-> 🔑 **Get a free Gemini API key** at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+> **API Keys:**
+> - Gemini → [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+> - SerpAPI → [serpapi.com](https://serpapi.com/)
+> - Supabase → [supabase.com](https://supabase.com/)
 
-### 4. Start the Backend
+Start the server:
 
 ```bash
-cd backend
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
 
-You should see:
-
-```
-INFO:     Uvicorn running on http://0.0.0.0:8000
-```
-
-Verify it's working:
-
-```bash
-curl http://localhost:8000/health
-# → {"status":"ok"}
-```
-
-### 5. Set up the Frontend
-
-Open a **new terminal**:
+### 3. Frontend
 
 ```bash
 cd frontend
-
-# Install Node dependencies
 npm install
-```
-
-### 6. Start the Frontend
-
-**For Web:**
-
-```bash
-npx expo start --web
-```
-
-**For Mobile (iOS / Android):**
-
-```bash
 npx expo start
 ```
 
-Then scan the QR code with the **Expo Go** app on your phone.
+Scan the QR code with Expo Go, or press `w` to open in the browser.
 
-> ⚠️ **Mobile + Backend**: If running the backend on your computer and the app on your phone, they must be on the **same Wi-Fi network**. You'll also need to change `API_BASE_URL` in `frontend/app/results.tsx` from `http://localhost:8000` to your computer's local IP, e.g.:
->
-> ```ts
-> const API_BASE_URL = 'http://192.168.1.42:8000';
-> ```
->
-> Find your local IP with `ipconfig` (Windows) or `ifconfig` (macOS/Linux).
+> **Mobile + Backend:** Both devices must be on the same Wi-Fi network. Update `frontend/constants/api.ts` with your machine's local IP (e.g., `http://192.168.1.42:8000`). For production, use a tunnel like [ngrok](https://ngrok.com/).
 
 ---
 
-## 📦 All Dependencies
+## 🔬 How the Gouging Detection Engine Works
 
-### Backend (Python)
+### The Pipeline
 
-| Package | Purpose |
-|---------|---------|
-| `fastapi` | Web framework for the API |
-| `uvicorn` | ASGI server to run FastAPI |
-| `python-multipart` | Required for `Form(...)` and `File(...)` uploads |
-| `python-dotenv` | Loads environment variables from `.env` |
-| `google-generativeai` | Google Gemini AI SDK |
-| `pillow` | Image processing (PIL) |
-
-**One-liner install:**
-
-```bash
-pip install fastapi uvicorn python-multipart python-dotenv google-generativeai pillow
+```
+User scans product on the shelf
+        │
+        ▼
+   Gemini 2.5 Flash identifies: brand, name, category, gender, volume
+        │
+        ▼
+   Gemini generates a comparison search query (filter-aware)
+   • Pink Tax filter → searches for the male/generic equivalent
+   • Tourist Tax filter → searches for the same product at fair local prices
+   • General → searches for the same product across retailers
+        │
+        ▼
+   SerpAPI hits Google Shopping (localized via gl= code)
+        │
+        ▼
+   Scoring Algorithm ranks results:
+   ✅ +4 for major retailers (Amazon, Walmart, Target, Best Buy)
+   ✅ +3 for brand name match
+   ✅ +2 for keyword overlap
+   ❌ -10 for bulk/multipack listings ("pack of 12", "bundle")
+   ❌ -5 for delivery apps (Instacart, DoorDash, Uber Eats)
+   ❌ Filtered out: refurbished, replacement parts, accessories, knockoffs
+        │
+        ▼
+   Anchor Filter: drops any price > 2.5× the best first-party price
+        │
+        ▼
+   Median Calculation: immune to outliers from dropshippers
+        │
+        ▼
+   Currency conversion (if SERP currency ≠ user currency)
+        │
+        ▼
+   Result: fair market price, gouging amount, % markup, product link + image
 ```
 
-### Frontend (Node.js / Expo)
+### Why Median > Mean
 
-All frontend dependencies are defined in `frontend/package.json` and installed with `npm install`. Key packages:
+E-commerce data is heavily right-skewed — a $7 razor might appear alongside a $45 "premium bundle" from a dropshipper. The **mean** gets pulled up; the **median** finds the true middle.
+
+### The Anchor Filter
+
+If the best trusted-retailer price is $7, any result over $17.50 (2.5×) is dropped entirely. This eliminates bulk multipacks and marketplace scalpers before they can inflate the "fair price" and hide the gouging.
+
+---
+
+## 🌍 Supported Regions
+
+| Country | GL Code | Currency | Status |
+|---------|---------|----------|--------|
+| United States | `us` | USD | ✅ Full support |
+| India | `in` | INR | ✅ Full support |
+| United Kingdom | `uk` | GBP | ✅ Full support |
+| Canada | `ca` | CAD | ✅ Full support |
+| Australia | `au` | AUD | ✅ Full support |
+| Germany | `de` | EUR | ✅ Full support |
+| France | `fr` | EUR | ✅ Full support |
+| Japan | `jp` | JPY | ✅ Full support |
+| *Any other* | *fallback* | *via FX API* | ✅ Currency conversion |
+
+---
+
+## 📦 Tech Stack
+
+### Backend
 
 | Package | Purpose |
 |---------|---------|
-| `expo` (~54.x) | Core Expo framework |
-| `expo-router` (~6.x) | File-based routing |
-| `expo-image-picker` (~17.x) | Camera + photo library access |
-| `expo-location` (~19.x) | GPS location + reverse geocoding |
-| `react-native-reanimated` (~4.x) | Smooth animations |
-| `react-native` (0.81.x) | Core React Native |
+| `fastapi` | REST API framework |
+| `google-genai` | Gemini 2.5 Flash (vision + text) |
+| `serpapi` | Google Shopping live price data |
+| `supabase` | PostgreSQL database + auth |
+| `pillow` | Image optimization before AI analysis |
+| `python-dotenv` | Environment variable management |
+
+### Frontend
+
+| Package | Purpose |
+|---------|---------|
+| `expo` (SDK 54) | Cross-platform React Native framework |
+| `expo-router` | File-based navigation |
+| `expo-camera` | Camera access for scanning |
+| `expo-image-picker` | Photo library upload |
+| `expo-location` | GPS + reverse geocoding |
+| `react-native-reanimated` | Smooth UI animations |
+| `@react-native-async-storage` | Persistent scan history |
 
 ---
 
-## 📱 How to Use
+## 📡 API Reference
 
-1. **Open the app** — You'll see the EquiSpend splash screen
-2. **Tap to enter** → Scanner screen
-3. **Allow location** — The app detects your city & country automatically
-4. **Select a mode:**
-   - 🚺 **Girl Mode** — for gendered product pricing (razors, shampoo, deodorant, etc.)
-   - 🌍 **Travel Mode** — for tourist-inflated prices (water, food, souvenirs, etc.)
-   - Select **both** for a dual analysis
-5. **Capture or upload** a product image
-6. **Tap Analyze** → Results screen shows:
-   - Product name identified by AI
-   - Price you're paying vs. the fair price
-   - The exact dollar amount of the "tax"
-   - Percentage markup
-   - Actionable suggestions
+### `POST /scan/identify`
 
----
-
-## 🔧 API Reference
-
-### `POST /scan`
-
-Analyze a product image for pricing inequity.
-
-**Form fields:**
+Identify a product from an image using Gemini AI.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `mode` | string | ✅ | `"girl"`, `"travel"`, or `"both"` |
-| `image` | file | ✅ | Product/receipt image (JPEG, PNG) |
-| `latitude` | string | ❌ | GPS latitude |
-| `longitude` | string | ❌ | GPS longitude |
-| `city` | string | ❌ | Reverse-geocoded city name |
-| `country` | string | ❌ | Reverse-geocoded country name |
+| `image` | File | ✅ | Product photo (JPEG/PNG) |
 
-**Response (success):**
-
+**Response:**
 ```json
 {
   "status": "success",
   "data": {
-    "product_name": "Venus Women's Razor 3-pack",
-    "price_scanned": 12.99,
-    "fair_price": 8.99,
-    "equity_gap": 4.00
-  },
-  "location": {
-    "city": "New York",
-    "country": "United States",
-    "latitude": 40.7128,
-    "longitude": -74.0060
-  },
-  "message": "Successfully processed in girl mode."
+    "brand": "Gillette Venus",
+    "product_name": "Smoothing Cleanser + Shave Gel",
+    "category": "Shave Gel",
+    "volume": "6.42 oz",
+    "gender_marketing": "women"
+  }
 }
 ```
 
-### `GET /health`
+### `POST /scan/analyze`
 
-Returns `{"status": "ok"}` — use this to verify the backend is running.
+Run the price gouging analysis pipeline.
 
----
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `mode` | string | ✅ | Gouging filter: `"girl"` (Pink Tax), `"travel"` (Tourist Tax), `"general"`, or `"both"` |
+| `brand` | string | ✅ | Product brand |
+| `product_name` | string | ✅ | Product name |
+| `category` | string | ✅ | Product category |
+| `user_price` | string | ✅ | Price the user is paying |
+| `currency` | string | ❌ | Currency code (default: `"USD"`) |
+| `city` | string | ❌ | User's city |
+| `state` | string | ❌ | User's state/region |
+| `country` | string | ❌ | User's country |
 
-## 🧪 Testing the API Manually
-
-```bash
-cd backend
-python test_api.py
+**Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "product_name": "Smoothing Cleanser + Shave Gel",
+    "price_scanned": 9.99,
+    "fair_price": 6.99,
+    "suggestion_price": 6.99,
+    "equity_gap": 3.00,
+    "gouging_percent": 42.9,
+    "currency_symbol": "$",
+    "comparable_product": "Gillette Series Sensitive Shave Gel",
+    "source": "Target",
+    "suggestion_image": "https://...",
+    "suggestion_link": "https://..."
+  }
+}
 ```
-
-Or with `curl`:
-
-```bash
-curl -X POST http://localhost:8000/scan \
-  -F "mode=girl" \
-  -F "image=@/path/to/product.jpg" \
-  -F "city=New York" \
-  -F "country=United States"
-```
-
----
-
-## 🛣️ Roadmap
-
-- [ ] **SerpApi Integration** — Live Google Shopping prices for real-time comparisons
-- [ ] **Open Beauty Facts** — Ingredient-level verification (prove products are identical)
-- [ ] **Numbeo CSV** — Pre-loaded cost-of-living data for 100+ cities
-- [ ] **Scan History Screen** — View past scans with trends over time
-- [ ] **Share Results** — Export or share findings with friends
-- [ ] **Barcode Scanning** — Faster product identification
 
 ---
 
 ## 🤝 Team
 
-Built for the hackathon by team EquiSpend.
+Built by **Team EquiSpend** for the hackathon — because price gouging shouldn't be invisible.
 
 ---
 
