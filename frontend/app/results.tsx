@@ -12,6 +12,9 @@ import {
     Platform,
     TextInput,
     KeyboardAvoidingView,
+    Linking,
+    Modal,
+    TouchableWithoutFeedback,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { getSharedImage, getSharedLocation, getSharedManualPrice, IdentifiedProduct } from '../image-store';
@@ -26,10 +29,13 @@ interface ScanResult {
     product_name?: string;
     price_scanned?: number;
     fair_price?: number;
+    suggestion_price?: number;
     equity_gap?: number;
     currency_symbol?: string;
     comparable_product?: string;
     source?: string;
+    suggestion_image?: string;
+    suggestion_link?: string;
 }
 
 interface AnalysisData {
@@ -65,6 +71,9 @@ export default function ResultsScreen() {
     const [homeCurrency, setHomeCurrency] = useState<string>(currency);
     const [homeCurrencySymbol, setHomeCurrencySymbol] = useState<string>(CURRENCY_SYMBOLS[currency] || '$');
     const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+
+    // Image Zoom Modal
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
     useEffect(() => {
         identifyProduct();
@@ -599,11 +608,37 @@ export default function ResultsScreen() {
 
                     {/* Show what we compared against */}
                     {comparableProduct ? (
-                        <View style={styles.comparedToRow}>
-                            <Text style={styles.comparedToLabel}>
+                        <View style={styles.comparedItemContainer}>
+                            <Text style={styles.comparedItemLabel}>
                                 {label === 'Pink Tax' ? '🔄 Compared to:' : '🏪 Source:'}
                             </Text>
-                            <Text style={styles.comparedToValue} numberOfLines={2}>{comparableProduct}</Text>
+                            <View style={styles.comparedItemCard}>
+                                {data.suggestion_image ? (
+                                    <TouchableOpacity onPress={() => setSelectedImage(data.suggestion_image!)} activeOpacity={0.8}>
+                                        <Image
+                                            source={{ uri: data.suggestion_image }}
+                                            style={styles.comparedItemImage}
+                                            resizeMode="contain"
+                                        />
+                                    </TouchableOpacity>
+                                ) : null}
+                                <View style={styles.comparedItemInfo}>
+                                    {data.suggestion_link ? (
+                                        <TouchableOpacity onPress={() => Linking.openURL(data.suggestion_link!)} activeOpacity={0.7}>
+                                            <Text style={[styles.comparedItemName, { textDecorationLine: 'underline', color: '#0066CC' }]} numberOfLines={2}>
+                                                {comparableProduct}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ) : (
+                                        <Text style={styles.comparedItemName} numberOfLines={2}>
+                                            {comparableProduct}
+                                        </Text>
+                                    )}
+                                    {data.source && data.source !== 'none' && data.source !== 'cache' ? (
+                                        <Text style={styles.comparedItemStore}>🏪 {data.source}</Text>
+                                    ) : null}
+                                </View>
+                            </View>
                         </View>
                     ) : null}
 
@@ -637,8 +672,57 @@ export default function ResultsScreen() {
                     </View>
                 </View>
 
-                {/* Suggestion */}
-                {hasTax && (
+                {/* Suggestion — show cheaper alternative when tax/gouging detected */}
+                {hasTax && (comparableProduct || data.suggestion_image) && (
+                    <View style={styles.suggestionBox}>
+                        <Text style={styles.suggestionTitle}>💡 Suggested Alternative</Text>
+                        <View style={styles.suggestionCard}>
+                            {data.suggestion_image ? (
+                                <TouchableOpacity onPress={() => setSelectedImage(data.suggestion_image!)} activeOpacity={0.8}>
+                                    <Image
+                                        source={{ uri: data.suggestion_image }}
+                                        style={styles.suggestionImage}
+                                        resizeMode="contain"
+                                    />
+                                </TouchableOpacity>
+                            ) : null}
+                            <View style={styles.suggestionInfo}>
+                                {data.suggestion_link ? (
+                                    <TouchableOpacity onPress={() => Linking.openURL(data.suggestion_link!)} activeOpacity={0.7}>
+                                        <Text style={[styles.suggestionProductName, { textDecorationLine: 'underline', color: '#0066CC' }]} numberOfLines={2}>
+                                            {comparableProduct}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ) : (
+                                    <Text style={styles.suggestionProductName} numberOfLines={2}>
+                                        {comparableProduct}
+                                    </Text>
+                                )}
+                                <Text style={styles.suggestionPrice}>
+                                    {currencySymbol}{Number(data.suggestion_price ?? fairPrice).toFixed(2)}
+                                </Text>
+                                {data.source && data.source !== 'none' && data.source !== 'cache' ? (
+                                    <Text style={styles.suggestionStore}>🏪 {data.source}</Text>
+                                ) : null}
+                                <Text style={styles.suggestionSaving}>
+                                    Save {currencySymbol}{Math.abs(Number(priceScanned - (data.suggestion_price ?? fairPrice))).toFixed(2)}
+                                </Text>
+                            </View>
+                        </View>
+                        {data.suggestion_link ? (
+                            <TouchableOpacity
+                                style={styles.suggestionLinkBtn}
+                                onPress={() => Linking.openURL(data.suggestion_link!)}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.suggestionLinkText}>View Product →</Text>
+                            </TouchableOpacity>
+                        ) : null}
+                    </View>
+                )}
+
+                {/* Tip when no suggestion data */}
+                {hasTax && !comparableProduct && !data.suggestion_image && (
                     <View style={styles.suggestionBox}>
                         <Text style={styles.suggestionText}>
                             {label === 'Pink Tax'
@@ -681,7 +765,9 @@ export default function ResultsScreen() {
                     {/* Scanned image + info row */}
                     <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.thumbRow}>
                         {imageUri ? (
-                            <Image source={{ uri: imageUri }} style={styles.resultThumb} />
+                            <TouchableOpacity onPress={() => setSelectedImage(imageUri)} activeOpacity={0.8}>
+                                <Image source={{ uri: imageUri }} style={styles.resultThumb} />
+                            </TouchableOpacity>
                         ) : null}
                         <View style={styles.thumbInfo}>
                             <Text style={styles.thumbTitle}>{editName || product?.product_name || 'Product'}</Text>
@@ -743,6 +829,36 @@ export default function ResultsScreen() {
             {phase === 'analyzing' && renderAnalyzing()}
             {phase === 'results' && renderResults()}
             {phase === 'error' && renderError()}
+
+            {/* Image Zoom Modal */}
+            <Modal
+                visible={!!selectedImage}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setSelectedImage(null)}
+            >
+                <TouchableWithoutFeedback onPress={() => setSelectedImage(null)}>
+                    <View style={styles.modalOverlay}>
+                        <TouchableWithoutFeedback>
+                            <View style={styles.modalImageContainer}>
+                                {selectedImage && (
+                                    <Image
+                                        source={{ uri: selectedImage }}
+                                        style={styles.modalImage}
+                                        resizeMode="contain"
+                                    />
+                                )}
+                                <TouchableOpacity
+                                    style={styles.modalCloseBtn}
+                                    onPress={() => setSelectedImage(null)}
+                                >
+                                    <Text style={styles.modalCloseText}>✕</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </TouchableWithoutFeedback>
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
         </View>
     );
 }
@@ -1069,11 +1185,114 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
 
+    /* ---- Compared Item Card ---- */
+    comparedItemContainer: {
+        marginTop: 12,
+        paddingHorizontal: 18,
+    },
+    comparedItemLabel: {
+        fontSize: 12,
+        color: '#8A6B75',
+        fontWeight: '600',
+        marginBottom: 6,
+    },
+    comparedItemCard: {
+        flexDirection: 'row',
+        backgroundColor: '#F9FAFB',
+        borderRadius: 10,
+        padding: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.05)',
+        gap: 10,
+        alignItems: 'center',
+    },
+    comparedItemImage: {
+        width: 40,
+        height: 40,
+        borderRadius: 6,
+        backgroundColor: '#FFFFFF',
+    },
+    comparedItemInfo: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    comparedItemName: {
+        fontSize: 12,
+        fontWeight: '500',
+        color: '#4A2035',
+        lineHeight: 16,
+    },
+    comparedItemStore: {
+        fontSize: 10,
+        color: '#8A6B75',
+        marginTop: 2,
+    },
+
     /* ---- Suggestion ---- */
     suggestionBox: {
         borderTopWidth: 1,
         borderTopColor: 'rgba(0,0,0,0.06)',
         padding: 18,
+    },
+    suggestionTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#D46A92',
+        marginBottom: 12,
+    },
+    suggestionCard: {
+        flexDirection: 'row',
+        backgroundColor: '#FFF8FA',
+        borderRadius: 14,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 149, 182, 0.2)',
+        gap: 12,
+    },
+    suggestionImage: {
+        width: 72,
+        height: 72,
+        borderRadius: 10,
+        backgroundColor: '#FFFFFF',
+    },
+    suggestionInfo: {
+        flex: 1,
+        justifyContent: 'center',
+        gap: 3,
+    },
+    suggestionProductName: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#4A2035',
+        lineHeight: 17,
+    },
+    suggestionPrice: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: '#059669',
+    },
+    suggestionStore: {
+        fontSize: 11,
+        color: '#8A6B75',
+        fontWeight: '500',
+    },
+    suggestionSaving: {
+        fontSize: 11,
+        color: '#059669',
+        fontWeight: '600',
+        marginTop: 2,
+    },
+    suggestionLinkBtn: {
+        marginTop: 10,
+        backgroundColor: '#D46A92',
+        borderRadius: 10,
+        paddingVertical: 10,
+        alignItems: 'center',
+    },
+    suggestionLinkText: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#FFFFFF',
     },
     suggestionText: { fontSize: 13, color: '#4A2035', lineHeight: 20, marginBottom: 14 },
 
@@ -1136,5 +1355,40 @@ const styles = StyleSheet.create({
         marginTop: -2,
         marginBottom: 4,
         paddingHorizontal: 18,
+    },
+
+    /* ---- Image Zoom Modal ---- */
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalImageContainer: {
+        width: '90%',
+        height: '80%',
+        justifyContent: 'center',
+        alignItems: 'center',
+        position: 'relative',
+    },
+    modalImage: {
+        width: '100%',
+        height: '100%',
+    },
+    modalCloseBtn: {
+        position: 'absolute',
+        top: -20,
+        right: -10,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalCloseText: {
+        color: '#FFF',
+        fontSize: 20,
+        fontWeight: 'bold',
     },
 });

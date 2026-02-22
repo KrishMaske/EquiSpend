@@ -111,23 +111,41 @@ async def analyze_endpoint(
     }
 
     try:
-        result = run_comparison_analysis(product_data, price, mode, user_location)
-
-        formatted = {
-            "product_name": product_name,
-            "price_scanned": price,
-            "fair_price": result.get("comparison_price", 0),
-            "equity_gap": round(max(0, price - (result.get("comparison_price") or 0)), 2),
-            "currency_symbol": currency_symbol,
-            "comparable_product": result.get("comparable_product", ""),
-            "source": result.get("source", ""),
-        }
+        def format_result(res, label_price):
+            return {
+                "product_name": product_name,
+                "price_scanned": price,
+                "fair_price": res.get("comparison_price", 0),
+                "suggestion_price": res.get("suggestion_price", 0),
+                "equity_gap": round(max(0, price - (res.get("comparison_price") or 0)), 2),
+                "currency_symbol": currency_symbol,
+                "comparable_product": res.get("comparable_product", ""),
+                "source": res.get("source", ""),
+                "suggestion_image": res.get("suggestion_image"),
+                "suggestion_link": res.get("suggestion_link"),
+            }
 
         if mode == "both":
-            return {"status": "success", "data": {"girl": formatted, "travel": formatted}}
+            # ── Run TWO separate analyses: Pink Tax + Tourist Tax ──
+            print("🔀 Both mode: running Pink Tax analysis...")
+            girl_result = run_comparison_analysis(product_data, price, "girl", user_location)
+            girl_formatted = format_result(girl_result, price)
+
+            print("🔀 Both mode: running Tourist Tax analysis...")
+            travel_result = run_comparison_analysis(product_data, price, "travel", user_location)
+            travel_formatted = format_result(travel_result, price)
+
+            return {"status": "success", "data": {"girl": girl_formatted, "travel": travel_formatted}}
+
         elif mode == "general":
+            result = run_comparison_analysis(product_data, price, mode, user_location)
+            formatted = format_result(result, price)
             return {"status": "success", "data": {"general": formatted}}
+
         else:
+            # Single mode: 'girl' or 'travel'
+            result = run_comparison_analysis(product_data, price, mode, user_location)
+            formatted = format_result(result, price)
             return {"status": "success", "data": formatted}
 
     except Exception as e:
