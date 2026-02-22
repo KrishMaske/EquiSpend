@@ -2,8 +2,8 @@ from fastapi import APIRouter, Form, UploadFile, File, HTTPException
 from typing import Optional
 import io
 from PIL import Image
-from utils.gemini import build_prompt, analyze_image
-from utils.logic import run_equispend_analysis
+from utils.gemini import build_identify_prompt, analyze_image
+from utils.logic import run_comparison_analysis
 
 router = APIRouter()
 
@@ -16,9 +16,7 @@ CURRENCY_SYMBOLS = {
 
 
 def optimize_image(pil_image: Image.Image, max_size: int = 1024) -> Image.Image:
-    """
-    Resize image to reduce token consumption while maintaining aspect ratio.
-    """
+    """Resize image to reduce token consumption while maintaining aspect ratio."""
     if pil_image.mode in ('RGBA', 'P'):
         pil_image = pil_image.convert('RGB')
 
@@ -36,79 +34,102 @@ def optimize_image(pil_image: Image.Image, max_size: int = 1024) -> Image.Image:
     return pil_image
 
 
-def build_location_string(city: str | None, state: str | None, country: str | None) -> str:
-    parts = [p for p in [city, state, country] if p]
-    return ", ".join(parts) if parts else "Unknown"
-
-
-def format_result(gemini_data: dict, pipeline_result: dict, currency_symbol: str) -> dict:
-    """Transform pipeline output into the shape the frontend expects."""
-    product_name = gemini_data.get("product_name", "Unknown Product")
-
-    if pipeline_result.get("source") == "supabase_cache":
-        cached = pipeline_result["data"]
-        price_scanned = float(cached.get("product_price") or 0)
-        fair_price = float(cached.get("domestic_price") or price_scanned)
-    else:
-        data = pipeline_result.get("data", {})
-        price_scanned = float(data.get("scanned_price") or 0)
-        fair_price = float(data.get("domestic_market_price") or price_scanned)
-
-    equity_gap = round(max(0, price_scanned - fair_price), 2)
-
-    return {
-        "product_name": product_name,
-        "price_scanned": price_scanned,
-        "fair_price": fair_price,
-        "equity_gap": equity_gap,
-        "currency_symbol": currency_symbol,
-    }
-
-
-@router.post("/scan")
-async def scan_endpoint(
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ENDPOINT 1: Identify the product (Gemini vision only)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@router.post("/scan/identify")
+async def identify_endpoint(
     image: UploadFile = File(...),
-    mode: str = Form(...),
-    city: Optional[str] = Form(None),
-    state: Optional[str] = Form(None),
-    country: Optional[str] = Form(None),
-    latitude: Optional[str] = Form(None),
-    longitude: Optional[str] = Form(None),
-    currency: Optional[str] = Form("USD"),
-    manual_price: Optional[str] = Form(None),
-    location: Optional[str] = Form(None),  # backward compat
 ):
+    """
+    Accepts a product image and returns the identified product info.
+    The user will verify this and then manually input their price.
+    """
     image_bytes = await image.read()
     pil_image = Image.open(io.BytesIO(image_bytes))
     optimized_image = optimize_image(pil_image)
 
-    user_location = build_location_string(city, state, country)
+    try:
+        prompt = build_identify_prompt()
+        product_data = analyze_image(optimized_image, prompt)
+
+        return {
+            "status": "success",
+            "data": {
+                "brand": product_data.get("brand", "Unknown"),
+                "product_name": product_data.get("product_name", "Unknown"),
+                "category": product_data.get("category", "Unknown"),
+                "volume": product_data.get("volume", ""),
+                "gender_marketing": product_data.get("gender_marketing", "unisex"),
+                "description": product_data.get("description", ""),
+            }
+        }
+
+    except Exception as e:
+        print(f"Identify error: {e}")
+        raise HTTPException(status_code=500, detail=f"Error identifying product: {str(e)}")
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ENDPOINT 2: Analyze (compare pricing)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@router.post("/scan/analyze")
+async def analyze_endpoint(
+    mode: str = Form(...),
+    brand: str = Form(...),
+    product_name: str = Form(...),
+    category: str = Form(...),
+    volume: Optional[str] = Form(""),
+    gender_marketing: Optional[str] = Form("unisex"),
+    user_price: str = Form(...),
+    city: Optional[str] = Form(None),
+    state: Optional[str] = Form(None),
+    country: Optional[str] = Form(None),
+    currency: Optional[str] = Form("USD"),
+):
+    """
+    Accepts confirmed product data + user-entered price + mode.
+    Runs the comparison pipeline:
+      - Pink Tax: finds comparable opposite-gender product, compares prices
+      - Tourist Tax: finds same product domestic price, compares
+    """
     currency_symbol = CURRENCY_SYMBOLS.get(currency or "USD", currency or "$")
+    parts = [p for p in [city, state, country] if p]
+    user_location = ", ".join(parts) if parts else "Unknown"
 
     try:
-        # Step 1: Single Gemini vision call (same for all modes)
-        prompt = build_prompt(mode)
-        gemini_data = analyze_image(optimized_image, prompt)
+        price = float(user_price)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid price value")
 
-        # Override price if manual price was provided
-        if manual_price:
-            try:
-                gemini_data["price_found"] = float(manual_price)
-            except (ValueError, TypeError):
-                pass
+    product_data = {
+        "brand": brand,
+        "product_name": product_name,
+        "category": category,
+        "volume": volume or "",
+        "gender_marketing": gender_marketing or "unisex",
+    }
 
-        # Step 2: Single pipeline run (cache → SERP → Numbeo)
-        pipeline_result = run_equispend_analysis(gemini_data, user_location)
+    try:
+        result = run_comparison_analysis(product_data, price, mode, user_location)
 
-        # Step 3: Format for frontend
-        formatted = format_result(gemini_data, pipeline_result, currency_symbol)
+        formatted = {
+            "product_name": product_name,
+            "price_scanned": price,
+            "fair_price": result.get("comparison_price", 0),
+            "equity_gap": round(max(0, price - (result.get("comparison_price") or 0)), 2),
+            "currency_symbol": currency_symbol,
+            "comparable_product": result.get("comparable_product", ""),
+            "source": result.get("source", ""),
+        }
 
         if mode == "both":
-            # Same scan data shown under both pink tax & travel cards
             return {"status": "success", "data": {"girl": formatted, "travel": formatted}}
+        elif mode == "general":
+            return {"status": "success", "data": {"general": formatted}}
         else:
             return {"status": "success", "data": formatted}
 
     except Exception as e:
-        print(f"Scan error: {e}")
-        raise HTTPException(status_code=500, detail=f"Error analyzing image: {str(e)}")
+        print(f"Analyze error: {e}")
+        raise HTTPException(status_code=500, detail=f"Error analyzing product: {str(e)}")

@@ -24,29 +24,6 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import Animated, { FadeIn, FadeInDown, SlideInUp } from 'react-native-reanimated';
 import { setSharedImage, setSharedLocation, setSharedManualPrice } from '../image-store';
 
-const CURRENCIES = [
-    { code: 'USD', symbol: '$', label: 'US Dollar' },
-    { code: 'EUR', symbol: '€', label: 'Euro' },
-    { code: 'GBP', symbol: '£', label: 'British Pound' },
-    { code: 'INR', symbol: '₹', label: 'Indian Rupee' },
-    { code: 'JPY', symbol: '¥', label: 'Japanese Yen' },
-    { code: 'CNY', symbol: '¥', label: 'Chinese Yuan' },
-    { code: 'CAD', symbol: 'C$', label: 'Canadian Dollar' },
-    { code: 'AUD', symbol: 'A$', label: 'Australian Dollar' },
-    { code: 'CHF', symbol: 'Fr', label: 'Swiss Franc' },
-    { code: 'SGD', symbol: 'S$', label: 'Singapore Dollar' },
-    { code: 'MXN', symbol: '$', label: 'Mexican Peso' },
-    { code: 'BRL', symbol: 'R$', label: 'Brazilian Real' },
-    { code: 'KRW', symbol: '₩', label: 'South Korean Won' },
-    { code: 'AED', symbol: 'د.إ', label: 'UAE Dirham' },
-    { code: 'SAR', symbol: '﷼', label: 'Saudi Riyal' },
-    { code: 'THB', symbol: '฿', label: 'Thai Baht' },
-    { code: 'IDR', symbol: 'Rp', label: 'Indonesian Rupiah' },
-    { code: 'TRY', symbol: '₺', label: 'Turkish Lira' },
-    { code: 'ZAR', symbol: 'R', label: 'South African Rand' },
-    { code: 'SEK', symbol: 'kr', label: 'Swedish Krona' },
-];
-
 const POPULAR_COUNTRIES = [
     'France', 'Japan', 'Spain', 'Italy', 'Germany', 'Mexico', 'Brazil',
     'China', 'South Korea', 'India', 'Thailand', 'Vietnam', 'Indonesia',
@@ -64,14 +41,13 @@ export default function ScannerScreen() {
     const [imageUri, setImageUri] = useState<string | null>(null);
     const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
-    // Manual price override state (collapsed by default — price is auto-detected)
-    const [showManualPrice, setShowManualPrice] = useState(false);
-    const [manualPriceText, setManualPriceText] = useState('');
+    // Currency selection (still used for passing to results)
     const [selectedCurrency, setSelectedCurrency] = useState('USD');
-    const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [showLocationPicker, setShowLocationPicker] = useState(false);
-    const [searchLocationText, setSearchLocationText] = useState('');
+    const [modalCity, setModalCity] = useState('');
+    const [modalState, setModalState] = useState('');
+    const [modalCountry, setModalCountry] = useState('');
 
     // Location state
     const [locationLoading, setLocationLoading] = useState(true);
@@ -143,14 +119,30 @@ export default function ScannerScreen() {
         }
     };
 
+    const openLocationPicker = () => {
+        setModalCity(locationCity ?? '');
+        setModalState(locationState ?? '');
+        setModalCountry(locationCountry ?? '');
+        setShowLocationPicker(true);
+    };
+
+    const applyManualLocation = () => {
+        setLocationCity(modalCity.trim() || null);
+        setLocationState(modalState.trim() || null);
+        setLocationCountry(modalCountry.trim() || null);
+        setLocationCoords(null);
+        setLocationError(null);
+        setShowLocationPicker(false);
+    };
+
     const getMode = (): string => {
         if (girlActive && travelActive) return 'both';
         if (girlActive) return 'girl';
         if (travelActive) return 'travel';
-        return 'girl';
+        return 'general';
     };
 
-    const atLeastOneMode = girlActive || travelActive;
+    const atLeastOneMode = true;
 
     const takePhoto = async () => {
         if (Platform.OS === 'web') {
@@ -227,14 +219,6 @@ export default function ScannerScreen() {
             }
             return;
         }
-        if (!atLeastOneMode) {
-            if (Platform.OS === 'web') {
-                window.alert('Select at least one analysis mode.');
-            } else {
-                Alert.alert('No Mode Selected', 'Select at least one analysis mode.');
-            }
-            return;
-        }
 
         setSharedImage(imageUri);
         setSharedLocation(
@@ -247,8 +231,7 @@ export default function ScannerScreen() {
                 }
                 : null
         );
-        const parsedPrice = manualPriceText.trim() !== '' ? parseFloat(manualPriceText) : null;
-        setSharedManualPrice(!isNaN(parsedPrice as number) ? parsedPrice : null, selectedCurrency);
+        setSharedManualPrice(null, selectedCurrency);
 
         router.push({
             pathname: '/results',
@@ -257,13 +240,14 @@ export default function ScannerScreen() {
     };
 
     const bothActive = girlActive && travelActive;
+    const neitherActive = !girlActive && !travelActive;
     const scanButtonColor = bothActive
         ? '#D46A92'
         : girlActive
             ? '#EC4899'
             : travelActive
                 ? '#3B82F6'
-                : '#C8AAB2';
+                : '#F59E0B';
 
     const locationDisplay = locationLoading
         ? 'Detecting…'
@@ -298,47 +282,67 @@ export default function ScannerScreen() {
                                 style={styles.modalKeyboardAvoid}
                             >
                                 <View style={styles.modalContent}>
-                                    <View style={styles.modalHeader}>
-                                        <Text style={styles.modalTitle}>Where are you playing?</Text>
-                                        <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowLocationPicker(false)}>
-                                            <Text style={styles.modalCloseText}>✕</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                    <TextInput
-                                        style={styles.modalInput}
-                                        placeholder="Type a country or city..."
-                                        placeholderTextColor="#B8708A"
-                                        value={searchLocationText}
-                                        onChangeText={setSearchLocationText}
-                                        onSubmitEditing={() => {
-                                            if (searchLocationText.trim()) {
-                                                setLocationCountry(searchLocationText.trim());
-                                                setLocationCity(null);
-                                                setShowLocationPicker(false);
-                                            }
-                                        }}
-                                        returnKeyType="search"
-                                    />
-                                    <ScrollView style={styles.modalList} keyboardShouldPersistTaps="handled">
-                                        {POPULAR_COUNTRIES.filter(c => c.toLowerCase().includes(searchLocationText.toLowerCase())).map((country) => (
-                                            <TouchableOpacity
-                                                key={country}
-                                                style={styles.modalOption}
-                                                onPress={() => {
-                                                    setLocationCountry(country);
-                                                    setLocationCity(null);
-                                                    setShowLocationPicker(false);
-                                                }}
-                                                activeOpacity={0.7}
-                                            >
-                                                <Text style={styles.modalOptionText}>{country}</Text>
-                                                {locationCountry === country && <Text style={styles.modalOptionCheck}>✓</Text>}
+                                    <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                                        <View style={styles.modalHeader}>
+                                            <Text style={styles.modalTitle}>Set Your Location</Text>
+                                            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowLocationPicker(false)}>
+                                                <Text style={styles.modalCloseText}>✕</Text>
                                             </TouchableOpacity>
-                                        ))}
+                                        </View>
+
+                                        <Text style={styles.modalFieldLabel}>City</Text>
+                                        <TextInput
+                                            style={styles.modalInput}
+                                            placeholder="e.g. Paris, Tokyo, New York"
+                                            placeholderTextColor="#B8708A"
+                                            value={modalCity}
+                                            onChangeText={setModalCity}
+                                            returnKeyType="next"
+                                        />
+
+                                        <Text style={styles.modalFieldLabel}>State / Region</Text>
+                                        <TextInput
+                                            style={styles.modalInput}
+                                            placeholder="e.g. Île-de-France, California"
+                                            placeholderTextColor="#B8708A"
+                                            value={modalState}
+                                            onChangeText={setModalState}
+                                            returnKeyType="next"
+                                        />
+
+                                        <Text style={styles.modalFieldLabel}>Country</Text>
+                                        <TextInput
+                                            style={styles.modalInput}
+                                            placeholder="e.g. France, Japan"
+                                            placeholderTextColor="#B8708A"
+                                            value={modalCountry}
+                                            onChangeText={setModalCountry}
+                                            returnKeyType="done"
+                                        />
+
+                                        <Text style={styles.modalFieldLabel}>Quick Select Country</Text>
+                                        <View style={styles.modalList}>
+                                            {POPULAR_COUNTRIES.filter(c => c.toLowerCase().includes((modalCountry || '').toLowerCase())).slice(0, 8).map((country) => (
+                                                <TouchableOpacity
+                                                    key={country}
+                                                    style={styles.modalOption}
+                                                    onPress={() => setModalCountry(country)}
+                                                    activeOpacity={0.7}
+                                                >
+                                                    <Text style={styles.modalOptionText}>{country}</Text>
+                                                    {modalCountry === country && <Text style={styles.modalOptionCheck}>✓</Text>}
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
+
+                                        <TouchableOpacity style={styles.modalConfirmBtn} onPress={applyManualLocation} activeOpacity={0.7}>
+                                            <Text style={styles.modalConfirmBtnText}>✓ Set Location</Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity style={styles.modalAutoBtn} onPress={() => { setShowLocationPicker(false); getLocation(); }} activeOpacity={0.7}>
+                                            <Text style={styles.modalAutoBtnText}>📍 Auto-Detect Location</Text>
+                                        </TouchableOpacity>
                                     </ScrollView>
-                                    <TouchableOpacity style={styles.modalAutoBtn} onPress={() => { setShowLocationPicker(false); getLocation(); }} activeOpacity={0.7}>
-                                        <Text style={styles.modalAutoBtnText}>📍 Auto-Detect Location</Text>
-                                    </TouchableOpacity>
                                 </View>
                             </KeyboardAvoidingView>
                         </TouchableWithoutFeedback>
@@ -350,7 +354,7 @@ export default function ScannerScreen() {
             <Animated.View entering={FadeIn.duration(500)} style={styles.locationBannerContainer}>
                 <View style={styles.locationBannerRow}>
                     <Text style={styles.locationIcon}>📍</Text>
-                    <TouchableOpacity style={styles.locationTextGroup} activeOpacity={0.7} onPress={() => setShowLocationPicker(true)}>
+                    <TouchableOpacity style={styles.locationTextGroup} activeOpacity={0.7} onPress={openLocationPicker}>
                         <Text style={styles.locationLabel}>Your Location</Text>
                         {locationLoading ? (
                             <View style={styles.locationLoadingRow}>
@@ -447,94 +451,21 @@ export default function ScannerScreen() {
                     style={styles.advancedToggle}
                 >
                     <Text style={styles.advancedToggleText}>
-                        {showAdvanced ? 'Hide Advanced Options ▲' : 'Show Advanced Options (Modes & Price) ▼'}
+                        {showAdvanced ? 'Hide Advanced Options ▲' : 'Show Advanced Options ▼'}
                     </Text>
                 </TouchableOpacity>
 
                 {showAdvanced && (
                     <View>
-                        {/* Manual Price Input — auto-detected by default */}
-                        <Animated.View entering={FadeInDown.delay(50).duration(300)} style={styles.priceInputContainer}>
-                            <Text style={{ fontSize: 12, fontFamily: 'Avenir', color: '#8A6B75', marginBottom: 6 }}>
-                                Price is auto-detected from the image.
-                            </Text>
-                            <TouchableOpacity
-                                onPress={() => { setShowManualPrice((p) => !p); if (showManualPrice) { setManualPriceText(''); setShowCurrencyPicker(false); } }}
-                                activeOpacity={0.7}
-                                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: showManualPrice ? 10 : 0 }}
-                            >
-                                <Text style={{ fontSize: 12, fontFamily: 'Avenir', fontWeight: '700', color: '#FF95B6' }}>
-                                    {showManualPrice ? '▾ Hide manual override' : '▸ Enter price manually'}
-                                </Text>
-                            </TouchableOpacity>
-
-                            {showManualPrice && (
-                                <>
-                                    <View style={styles.priceRow}>
-                                        <TouchableOpacity
-                                            style={styles.currencyButton}
-                                            onPress={() => setShowCurrencyPicker((p) => !p)}
-                                            activeOpacity={0.8}
-                                        >
-                                            <Text style={styles.currencyButtonText}>
-                                                {selectedCurrency} {CURRENCIES.find(c => c.code === selectedCurrency)?.symbol}
-                                            </Text>
-                                            <Text style={styles.currencyChevron}>{showCurrencyPicker ? '▲' : '▼'}</Text>
-                                        </TouchableOpacity>
-
-                                        <TextInput
-                                            style={styles.priceInput}
-                                            placeholder="e.g. 12.99"
-                                            placeholderTextColor="#B8708A"
-                                            keyboardType="decimal-pad"
-                                            value={manualPriceText}
-                                            onChangeText={setManualPriceText}
-                                            returnKeyType="done"
-                                            accessibilityLabel="Manual price input"
-                                        />
-                                        {manualPriceText.length > 0 && (
-                                            <TouchableOpacity onPress={() => setManualPriceText('')} style={styles.priceClearBtn}>
-                                                <Text style={styles.priceClearText}>✕</Text>
-                                            </TouchableOpacity>
-                                        )}
-                                    </View>
-
-                                    {showCurrencyPicker && (
-                                        <View style={styles.currencyDropdown}>
-                                            <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
-                                                {CURRENCIES.map((c) => (
-                                                    <TouchableOpacity
-                                                        key={c.code}
-                                                        style={[
-                                                            styles.currencyOption,
-                                                            selectedCurrency === c.code && styles.currencyOptionActive,
-                                                        ]}
-                                                        onPress={() => {
-                                                            setSelectedCurrency(c.code);
-                                                            setShowCurrencyPicker(false);
-                                                        }}
-                                                        activeOpacity={0.7}
-                                                    >
-                                                        <Text style={styles.currencyOptionSymbol}>{c.symbol}</Text>
-                                                        <Text style={styles.currencyOptionLabel}>{c.code} — {c.label}</Text>
-                                                        {selectedCurrency === c.code && (
-                                                            <Text style={styles.currencyOptionCheck}>✓</Text>
-                                                        )}
-                                                    </TouchableOpacity>
-                                                ))}
-                                            </ScrollView>
-                                        </View>
-                                    )}
-                                </>
-                            )}
-                        </Animated.View>
-
                         {/* Mode Toggle Switch */}
                         <Animated.View
                             entering={FadeInDown.delay(100).duration(300)}
                             style={styles.modeToggleContainer}
                         >
                             <Text style={styles.modeLabel}>Analysis Modes</Text>
+                            <Text style={{ fontSize: 12, fontFamily: 'Avenir', color: '#8A6B75', marginBottom: 10 }}>
+                                Toggle off both for general price gouging check
+                            </Text>
                             <View style={styles.toggleRow}>
                                 <View style={styles.toggleItem}>
                                     <Text style={[styles.toggleLabel, girlActive && styles.toggleLabelActive]}>Pink Tax</Text>
@@ -566,7 +497,7 @@ export default function ScannerScreen() {
                     <TouchableOpacity
                         style={[
                             styles.analyzeButton,
-                            { backgroundColor: !imageUri ? '#FF95B6' : (atLeastOneMode ? scanButtonColor : '#C8AAB2') },
+                            { backgroundColor: !imageUri ? '#FF95B6' : scanButtonColor },
                         ]}
                         onPress={imageUri ? handleAnalyze : pickImage}
                         activeOpacity={0.7}
@@ -589,7 +520,7 @@ export default function ScannerScreen() {
                             ? 'Detects price gaps on gendered products'
                             : travelActive
                                 ? 'Detects inflated prices for travelers'
-                                : 'Select a mode to begin'}
+                                : 'Checks for general price gouging'}
                 </Text>
             </Animated.View>
         </View>
@@ -1038,7 +969,7 @@ const styles = StyleSheet.create({
         fontWeight: '800',
     },
     modalAutoBtn: {
-        marginTop: 20,
+        marginTop: 12,
         backgroundColor: 'rgba(255,149,182,0.15)',
         borderRadius: 16,
         paddingVertical: 16,
@@ -1046,6 +977,27 @@ const styles = StyleSheet.create({
     },
     modalAutoBtnText: {
         color: '#D46A92',
+        fontSize: 15,
+        fontWeight: '700',
+    },
+    modalFieldLabel: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: '#8A6B75',
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
+        marginBottom: 6,
+        marginTop: 4,
+    },
+    modalConfirmBtn: {
+        marginTop: 16,
+        backgroundColor: '#D46A92',
+        borderRadius: 16,
+        paddingVertical: 16,
+        alignItems: 'center',
+    },
+    modalConfirmBtnText: {
+        color: '#FFFFFF',
         fontSize: 15,
         fontWeight: '700',
     },

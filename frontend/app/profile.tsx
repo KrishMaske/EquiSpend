@@ -14,6 +14,7 @@ import {
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { clearAuth, getUser } from '../constants/auth';
+import { CURRENCIES } from '../constants/currencies';
 
 export default function ProfileScreen() {
     const router = useRouter();
@@ -24,6 +25,8 @@ export default function ProfileScreen() {
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [saved, setSaved] = useState(false);
+    const [homeCurrency, setHomeCurrency] = useState('USD');
+    const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
 
     // Load saved profile data on mount
     useEffect(() => {
@@ -41,6 +44,7 @@ export default function ProfileScreen() {
                 'profile_email',
                 'profile_phone',
                 'profile_password',
+                'profile_homeCurrency',
             ]);
             const map: Record<string, string> = {};
             data.forEach(([key, value]) => {
@@ -55,6 +59,7 @@ export default function ProfileScreen() {
             setEmail(map['profile_email'] ?? authEmail);
             setPhone(map['profile_phone'] ?? '');
             setPassword(map['profile_password'] ?? '');
+            setHomeCurrency(map['profile_homeCurrency'] ?? 'USD');
         } catch (e) {
             // silently fail
         }
@@ -69,6 +74,7 @@ export default function ProfileScreen() {
                 ['profile_email', email],
                 ['profile_phone', phone],
                 ['profile_password', password],
+                ['profile_homeCurrency', homeCurrency],
             ]);
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
@@ -184,6 +190,46 @@ export default function ProfileScreen() {
                             secureTextEntry
                             returnKeyType="done"
                         />
+                    </View>
+
+                    {/* ---- Preferences Section ---- */}
+                    <View style={styles.sectionDivider} />
+                    <Text style={styles.sectionTitle}>Preferences</Text>
+
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>Home Currency</Text>
+                        <Text style={{ fontSize: 12, color: '#8A6B75', marginBottom: 8 }}>
+                            Your preferred currency — used to show converted prices while traveling
+                        </Text>
+                        <TouchableOpacity
+                            style={styles.currencySelector}
+                            onPress={() => setShowCurrencyPicker(!showCurrencyPicker)}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={styles.currencySelectorText}>
+                                {CURRENCIES.find(c => c.code === homeCurrency)?.symbol} {homeCurrency} — {CURRENCIES.find(c => c.code === homeCurrency)?.label}
+                            </Text>
+                            <Text style={styles.currencySelectorChevron}>{showCurrencyPicker ? '▲' : '▼'}</Text>
+                        </TouchableOpacity>
+
+                        {showCurrencyPicker && (
+                            <View style={styles.currencyDropdown}>
+                                <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                                    {CURRENCIES.map((c) => (
+                                        <TouchableOpacity
+                                            key={c.code}
+                                            style={[styles.currencyItem, homeCurrency === c.code && styles.currencyItemActive]}
+                                            onPress={() => { setHomeCurrency(c.code); setShowCurrencyPicker(false); }}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Text style={styles.currencyItemSymbol}>{c.symbol}</Text>
+                                            <Text style={styles.currencyItemLabel}>{c.code} — {c.label}</Text>
+                                            {homeCurrency === c.code && <Text style={styles.currencyItemCheck}>✓</Text>}
+                                        </TouchableOpacity>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        )}
                     </View>
 
                     <TouchableOpacity
@@ -309,5 +355,78 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#FFFFFF',
         letterSpacing: 0.5,
+    },
+
+    /* ---- Preferences ---- */
+    sectionDivider: {
+        height: 1,
+        backgroundColor: 'rgba(255,149,182,0.2)',
+        marginVertical: 20,
+    },
+    sectionTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#8A6B75',
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+        marginBottom: 16,
+    },
+    currencySelector: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 14,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(255,149,182,0.25)',
+    },
+    currencySelectorText: {
+        fontSize: 15,
+        color: '#1A1A1A',
+        fontWeight: '600',
+    },
+    currencySelectorChevron: {
+        fontSize: 12,
+        color: '#8A6B75',
+    },
+    currencyDropdown: {
+        marginTop: 8,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(255,149,182,0.2)',
+        overflow: 'hidden',
+    },
+    currencyItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        gap: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(0,0,0,0.04)',
+    },
+    currencyItemActive: {
+        backgroundColor: 'rgba(255,149,182,0.1)',
+    },
+    currencyItemSymbol: {
+        fontSize: 16,
+        color: '#FF95B6',
+        width: 28,
+        textAlign: 'center',
+        fontWeight: '700',
+    },
+    currencyItemLabel: {
+        flex: 1,
+        fontSize: 14,
+        color: '#4A2035',
+        fontWeight: '500',
+    },
+    currencyItemCheck: {
+        fontSize: 14,
+        color: '#10B981',
+        fontWeight: '700',
     },
 });

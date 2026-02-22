@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { useState, useEffect } from 'react';
 import {
     StyleSheet,
     Text,
@@ -6,13 +7,40 @@ import {
     View,
     Dimensions,
     Image,
+    ActivityIndicator,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { isLoggedIn } from '../constants/auth';
 
 const { width, height } = Dimensions.get('window');
 
 export default function HomeScreen() {
     const router = useRouter();
+    const [checkingAuth, setCheckingAuth] = useState(true);
+
+    useEffect(() => {
+        const checkAuth = async () => {
+            try {
+                const loggedIn = await isLoggedIn();
+                if (loggedIn) {
+                    router.replace('/scanner');
+                    return;
+                }
+            } catch (e) {
+                // silently fail — show login screen
+            }
+            setCheckingAuth(false);
+        };
+        checkAuth();
+    }, []);
+
+    if (checkingAuth) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color="#FF95B6" />
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>

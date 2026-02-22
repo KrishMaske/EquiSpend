@@ -7,6 +7,17 @@ let _location: { latitude: number; longitude: number; city?: string; state?: str
 let _manualPrice: number | null = null;
 let _currency: string = 'USD';
 
+// Identified product data from Gemini (phase 1)
+export interface IdentifiedProduct {
+    brand: string;
+    product_name: string;
+    category: string;
+    volume: string;
+    gender_marketing: string;
+    description: string;
+}
+let _identifiedProduct: IdentifiedProduct | null = null;
+
 export function setSharedImage(uri: string | null) {
     _imageUri = uri;
 }
@@ -30,4 +41,12 @@ export function setSharedManualPrice(price: number | null, currency: string) {
 
 export function getSharedManualPrice(): { price: number | null; currency: string } {
     return { price: _manualPrice, currency: _currency };
+}
+
+export function setIdentifiedProduct(product: IdentifiedProduct | null) {
+    _identifiedProduct = product;
+}
+
+export function getIdentifiedProduct(): IdentifiedProduct | null {
+    return _identifiedProduct;
 }
