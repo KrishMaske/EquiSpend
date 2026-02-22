@@ -14,6 +14,9 @@ import {
     ScrollView,
     Switch,
     Modal,
+    KeyboardAvoidingView,
+    TouchableWithoutFeedback,
+    Keyboard,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
@@ -284,51 +287,60 @@ export default function ScannerScreen() {
                 transparent={true}
                 onRequestClose={() => setShowLocationPicker(false)}
             >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Where are you playing?</Text>
-                            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowLocationPicker(false)}>
-                                <Text style={styles.modalCloseText}>✕</Text>
-                            </TouchableOpacity>
-                        </View>
-                        <TextInput
-                            style={styles.modalInput}
-                            placeholder="Type a country or city..."
-                            placeholderTextColor="#B8708A"
-                            value={searchLocationText}
-                            onChangeText={setSearchLocationText}
-                            onSubmitEditing={() => {
-                                if (searchLocationText.trim()) {
-                                    setLocationCountry(searchLocationText.trim());
-                                    setLocationCity(null);
-                                    setShowLocationPicker(false);
-                                }
-                            }}
-                            returnKeyType="search"
-                        />
-                        <ScrollView style={styles.modalList} keyboardShouldPersistTaps="handled">
-                            {POPULAR_COUNTRIES.filter(c => c.toLowerCase().includes(searchLocationText.toLowerCase())).map((country) => (
-                                <TouchableOpacity
-                                    key={country}
-                                    style={styles.modalOption}
-                                    onPress={() => {
-                                        setLocationCountry(country);
-                                        setLocationCity(null);
-                                        setShowLocationPicker(false);
-                                    }}
-                                    activeOpacity={0.7}
-                                >
-                                    <Text style={styles.modalOptionText}>{country}</Text>
-                                    {locationCountry === country && <Text style={styles.modalOptionCheck}>✓</Text>}
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
-                        <TouchableOpacity style={styles.modalAutoBtn} onPress={() => { setShowLocationPicker(false); getLocation(); }} activeOpacity={0.7}>
-                            <Text style={styles.modalAutoBtnText}>📍 Auto-Detect Location</Text>
-                        </TouchableOpacity>
+                <TouchableWithoutFeedback onPress={() => setShowLocationPicker(false)}>
+                    <View style={styles.modalOverlay}>
+                        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+                            <KeyboardAvoidingView
+                                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                                style={styles.modalKeyboardAvoid}
+                            >
+                                <View style={styles.modalContent}>
+                                    <View style={styles.modalHeader}>
+                                        <Text style={styles.modalTitle}>Where are you playing?</Text>
+                                        <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowLocationPicker(false)}>
+                                            <Text style={styles.modalCloseText}>✕</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                    <TextInput
+                                        style={styles.modalInput}
+                                        placeholder="Type a country or city..."
+                                        placeholderTextColor="#B8708A"
+                                        value={searchLocationText}
+                                        onChangeText={setSearchLocationText}
+                                        onSubmitEditing={() => {
+                                            if (searchLocationText.trim()) {
+                                                setLocationCountry(searchLocationText.trim());
+                                                setLocationCity(null);
+                                                setShowLocationPicker(false);
+                                            }
+                                        }}
+                                        returnKeyType="search"
+                                    />
+                                    <ScrollView style={styles.modalList} keyboardShouldPersistTaps="handled">
+                                        {POPULAR_COUNTRIES.filter(c => c.toLowerCase().includes(searchLocationText.toLowerCase())).map((country) => (
+                                            <TouchableOpacity
+                                                key={country}
+                                                style={styles.modalOption}
+                                                onPress={() => {
+                                                    setLocationCountry(country);
+                                                    setLocationCity(null);
+                                                    setShowLocationPicker(false);
+                                                }}
+                                                activeOpacity={0.7}
+                                            >
+                                                <Text style={styles.modalOptionText}>{country}</Text>
+                                                {locationCountry === country && <Text style={styles.modalOptionCheck}>✓</Text>}
+                                            </TouchableOpacity>
+                                        ))}
+                                    </ScrollView>
+                                    <TouchableOpacity style={styles.modalAutoBtn} onPress={() => { setShowLocationPicker(false); getLocation(); }} activeOpacity={0.7}>
+                                        <Text style={styles.modalAutoBtnText}>📍 Auto-Detect Location</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </KeyboardAvoidingView>
+                        </TouchableWithoutFeedback>
                     </View>
-                </View>
+                </TouchableWithoutFeedback>
             </Modal>
 
             {/* Location banner */}
@@ -935,6 +947,10 @@ const styles = StyleSheet.create({
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(10, 14, 26, 0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalKeyboardAvoid: {
+        width: '100%',
         justifyContent: 'flex-end',
     },
     modalContent: {
