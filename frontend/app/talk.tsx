@@ -29,8 +29,6 @@ export default function TalkScreen() {
     const fairPrice = params.fairPrice || '';
     const hasPriceData = !!(askingPrice && fairPrice);
 
-    // Build dynamic variables JSON for the widget
-    // Widget uses JSON.parse() internally — must be raw JSON, NOT HTML-encoded
     const dynamicVars = JSON.stringify({
         location: locationStr,
         product_name: productName,
@@ -148,7 +146,6 @@ export default function TalkScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Native header */}
             <View style={styles.header}>
                 <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
                     <Ionicons name="chevron-down" size={28} color="#D46A92" />
@@ -157,7 +154,6 @@ export default function TalkScreen() {
                 <View style={{ width: 28 }} />
             </View>
 
-            {/* WebView with ElevenLabs convai widget */}
             <WebView
                 source={{ html: htmlContent, baseUrl: 'https://localhost' }}
                 originWhitelist={['*']}

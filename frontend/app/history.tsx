@@ -40,11 +40,9 @@ export default function HistoryScreen() {
             const raw = await AsyncStorage.getItem('scan_history');
             if (raw) {
                 const parsed = JSON.parse(raw) as Transaction[];
-                // Show newest first
                 setTransactions(parsed.reverse());
             }
         } catch (e) {
-            // silently fail
         }
     };
 
@@ -53,7 +51,6 @@ export default function HistoryScreen() {
             await AsyncStorage.removeItem('scan_history');
             setTransactions([]);
         } catch (e) {
-            // silently fail
         }
     };
 
@@ -67,7 +64,6 @@ export default function HistoryScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Header */}
             <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
                     <Text style={styles.backArrowText}>←</Text>
@@ -124,7 +120,6 @@ export default function HistoryScreen() {
                                 key={tx.id}
                                 style={styles.card}
                             >
-                                {/* Top row */}
                                 <View style={styles.cardTop}>
                                     <View style={styles.cardTopLeft}>
                                         <Text style={styles.cardEmoji}>{emoji}</Text>
@@ -144,7 +139,6 @@ export default function HistoryScreen() {
                                     </View>
                                 </View>
 
-                                {/* Price row */}
                                 <View style={styles.priceRow}>
                                     <View style={styles.priceItem}>
                                         <Text style={styles.priceLabel}>Scanned</Text>
@@ -169,7 +163,6 @@ export default function HistoryScreen() {
                                     </View>
                                 </View>
 
-                                {/* Bottom tag */}
                                 {tx.location && (
                                     <View style={styles.cardBottom}>
                                         <Text style={styles.cardLocation}>📍 {tx.location}</Text>
@@ -187,7 +180,6 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#FFF0F3' },
 
-    /* ---- Header ---- */
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -216,7 +208,6 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
 
-    /* ---- Empty ---- */
     emptyContainer: {
         flex: 1,
         justifyContent: 'center',
@@ -234,7 +225,6 @@ const styles = StyleSheet.create({
     },
     scanButtonText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
 
-    /* ---- List ---- */
     scrollView: { flex: 1 },
     scrollContent: { padding: 20, paddingBottom: 40 },
     countLabel: {
@@ -246,7 +236,6 @@ const styles = StyleSheet.create({
         marginBottom: 14,
     },
 
-    /* ---- Card ---- */
     card: {
         backgroundColor: '#FFFFFF',
         borderRadius: 16,
@@ -289,7 +278,6 @@ const styles = StyleSheet.create({
         fontWeight: '800',
     },
 
-    /* ---- Price row ---- */
     priceRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -319,7 +307,6 @@ const styles = StyleSheet.create({
         color: '#1A1A1A',
     },
 
-    /* ---- Bottom ---- */
     cardBottom: {
         marginTop: 10,
         paddingTop: 10,

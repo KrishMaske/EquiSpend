@@ -7,7 +7,6 @@ from routes.auth_route import router as auth_router
 
 app = FastAPI()
 
-# Allow requests from Expo dev server and any local frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

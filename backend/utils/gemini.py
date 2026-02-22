@@ -56,7 +56,6 @@ def build_comparison_query(product_data: dict, mode: str) -> dict:
     gender = product_data.get("gender_marketing", "unisex")
 
     if mode == "girl":
-        # ── Pink Tax: opposite-gender equivalent ──────────────────────
         if gender == "women":
             target_gender = "men's"
             original_gender = "women's"
@@ -94,7 +93,6 @@ def build_comparison_query(product_data: dict, mode: str) -> dict:
         )
 
     elif mode == "travel":
-        # ── Tourist Tax: standard retail price in a reference market ──
         prompt = (
             f"I'm detecting the Tourist Tax — a traveler bought a product at a "
             f"tourist-area shop and I need to find its STANDARD retail price at "
@@ -114,7 +112,6 @@ def build_comparison_query(product_data: dict, mode: str) -> dict:
         )
 
     else:
-        # ── General price gouging: fair online price in the same market ──
         prompt = (
             f"I'm checking for price gouging. A customer bought a product at a "
             f"local store and I need to find its fair online price to see if "
@@ -148,7 +145,6 @@ def build_comparison_query(product_data: dict, mode: str) -> dict:
 
     except Exception as e:
         print(f"Error generating comparison query: {e}")
-        # Fallback: build a simple query
         if mode == "girl":
             target = "men" if gender == "women" else "women"
             return {

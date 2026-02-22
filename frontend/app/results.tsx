@@ -61,18 +61,15 @@ export default function ResultsScreen() {
     const [analysisData, setAnalysisData] = useState<AnalysisData>({});
     const [errorMsg, setErrorMsg] = useState('');
 
-    // Editable product fields
     const [editBrand, setEditBrand] = useState('');
     const [editName, setEditName] = useState('');
 
-    // Currency
     const [scanCurrency, setScanCurrency] = useState(currency);
     const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
     const [homeCurrency, setHomeCurrency] = useState<string>(currency);
     const [homeCurrencySymbol, setHomeCurrencySymbol] = useState<string>(CURRENCY_SYMBOLS[currency] || '$');
     const [exchangeRate, setExchangeRate] = useState<number | null>(null);
 
-    // Image Zoom Modal
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
     useEffect(() => {
@@ -105,9 +102,6 @@ export default function ResultsScreen() {
         }
     };
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // PHASE 1: Send image to /scan/identify
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     const identifyProduct = async () => {
         setPhase('identifying');
         setErrorMsg('');
@@ -154,9 +148,6 @@ export default function ResultsScreen() {
         }
     };
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // PHASE 2: Send confirmed data + price to /scan/analyze
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     const runAnalysis = async () => {
         if (!userPrice || isNaN(Number(userPrice))) {
             setErrorMsg('Please enter a valid price.');
@@ -219,9 +210,6 @@ export default function ResultsScreen() {
         }
     };
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // Save to history
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     const saveToHistory = async (results: AnalysisData) => {
         try {
             const raw = await AsyncStorage.getItem('scan_history');
@@ -276,13 +264,9 @@ export default function ResultsScreen() {
 
             await AsyncStorage.setItem('scan_history', JSON.stringify(history));
         } catch (e) {
-            // silently fail
         }
     };
 
-    // =====================================================================
-    // RENDER: Identifying (Phase 1 loading)
-    // =====================================================================
     const renderIdentifying = () => (
         <Animated.View entering={FadeIn.duration(600)} style={styles.centerContainer}>
             <View style={styles.loadingCard}>
@@ -298,9 +282,6 @@ export default function ResultsScreen() {
         </Animated.View>
     );
 
-    // =====================================================================
-    // RENDER: Verify (user confirms product + enters price)
-    // =====================================================================
     const renderVerify = () => (
         <KeyboardAvoidingView
             style={{ flex: 1 }}
@@ -312,7 +293,6 @@ export default function ResultsScreen() {
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
             >
-                {/* Header */}
                 <Animated.View entering={FadeIn.duration(600)} style={styles.verifyHeader}>
                     <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
                         <Text style={styles.backArrow}>←</Text>
@@ -322,7 +302,6 @@ export default function ResultsScreen() {
                     <View style={styles.headerSpacer} />
                 </Animated.View>
 
-                {/* Product image + detected info */}
                 <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.verifyCard}>
                     <View style={styles.verifyImageRow}>
                         {imageUri ? (
@@ -360,14 +339,12 @@ export default function ResultsScreen() {
                         </View>
                     </View>
 
-                    {/* AI description */}
                     {product?.description ? (
                         <Text style={styles.aiDescription}>🤖  {product.description}</Text>
                     ) : null}
 
                     <View style={styles.divider} />
 
-                    {/* Editable fields */}
                     <Text style={styles.fieldLabel}>Brand</Text>
                     <TextInput
                         style={styles.fieldInput}
@@ -388,7 +365,6 @@ export default function ResultsScreen() {
 
                     <View style={styles.divider} />
 
-                    {/* Price input */}
                     <Text style={styles.priceInputLabel}>💰 Enter the price you see</Text>
                     <View style={styles.priceInputRow}>
                         <TouchableOpacity onPress={() => setShowCurrencyPicker(!showCurrencyPicker)}>
@@ -424,7 +400,6 @@ export default function ResultsScreen() {
                         </View>
                     )}
 
-                    {/* Mode info */}
                     <View style={styles.modeInfoRow}>
                         {(mode === 'girl' || mode === 'both') && (
                             <View style={[styles.modePill, { borderColor: '#EC4899' }]}>
@@ -452,7 +427,6 @@ export default function ResultsScreen() {
                     )}
                 </Animated.View>
 
-                {/* Action buttons */}
                 <Animated.View entering={FadeInUp.delay(300).duration(600)}>
                     <TouchableOpacity
                         style={[styles.analyzeButton, (!userPrice || isNaN(Number(userPrice))) && styles.analyzeButtonDisabled]}
@@ -471,9 +445,6 @@ export default function ResultsScreen() {
         </KeyboardAvoidingView>
     );
 
-    // =====================================================================
-    // RENDER: Analyzing (Phase 2 loading)
-    // =====================================================================
     const renderAnalyzing = () => (
         <Animated.View entering={FadeIn.duration(600)} style={styles.centerContainer}>
             <View style={styles.loadingCard}>
@@ -513,9 +484,6 @@ export default function ResultsScreen() {
         </Animated.View>
     );
 
-    // =====================================================================
-    // RENDER: Error
-    // =====================================================================
     const renderError = () => (
         <Animated.View entering={FadeIn.duration(600)} style={styles.centerContainer}>
             <View style={styles.errorCard}>
@@ -532,9 +500,6 @@ export default function ResultsScreen() {
         </Animated.View>
     );
 
-    // =====================================================================
-    // RENDER: Result Card
-    // =====================================================================
     const renderResultCard = (
         label: string,
         emoji: string,
@@ -558,7 +523,6 @@ export default function ResultsScreen() {
                 style={styles.card}
                 key={label}
             >
-                {/* Alert Banner */}
                 <View
                     style={[
                         styles.alertBanner,
@@ -576,7 +540,6 @@ export default function ResultsScreen() {
                     </View>
                 </View>
 
-                {/* Product info */}
                 <View style={styles.cardSection}>
                     <View style={styles.cardHeader}>
                         <Text style={styles.cardIcon}>{emoji}</Text>
@@ -606,7 +569,6 @@ export default function ResultsScreen() {
                         </Text>
                     )}
 
-                    {/* Show what we compared against */}
                     {comparableProduct ? (
                         <View style={styles.comparedItemContainer}>
                             <Text style={styles.comparedItemLabel}>
@@ -658,7 +620,6 @@ export default function ResultsScreen() {
                     )}
                 </View>
 
-                {/* Stats */}
                 <View style={styles.miniStatsRow}>
                     <View style={[styles.miniStat, { borderColor: accentColor + '30' }]}>
                         <Text style={[styles.miniStatValue, { color: accentColor }]}>{percentMarkup}%</Text>
@@ -672,7 +633,6 @@ export default function ResultsScreen() {
                     </View>
                 </View>
 
-                {/* Suggestion — show cheaper alternative when tax/gouging detected */}
                 {hasTax && (comparableProduct || data.suggestion_image) && (
                     <View style={styles.suggestionBox}>
                         <Text style={styles.suggestionTitle}>💡 Suggested Alternative</Text>
@@ -721,7 +681,6 @@ export default function ResultsScreen() {
                     </View>
                 )}
 
-                {/* Tip when no suggestion data */}
                 {hasTax && !comparableProduct && !data.suggestion_image && (
                     <View style={styles.suggestionBox}>
                         <Text style={styles.suggestionText}>
@@ -734,7 +693,6 @@ export default function ResultsScreen() {
                     </View>
                 )}
 
-                {/* Haggle button — only show when overpriced */}
                 {hasTax && (label === 'Tourist Tax' || label === 'Price Gouging') && (
                     <TouchableOpacity
                         style={styles.haggleBtn}
@@ -759,9 +717,6 @@ export default function ResultsScreen() {
         );
     };
 
-    // =====================================================================
-    // RENDER: Results
-    // =====================================================================
     const renderResults = () => {
         const hasGirl = !!analysisData.girl;
         const hasTravel = !!analysisData.travel;
@@ -769,7 +724,6 @@ export default function ResultsScreen() {
 
         return (
             <>
-                {/* Header */}
                 <Animated.View entering={FadeIn.duration(600)} style={styles.header}>
                     <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
                         <Text style={styles.backArrow}>←</Text>
@@ -784,7 +738,6 @@ export default function ResultsScreen() {
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* Scanned image + info row */}
                     <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.thumbRow}>
                         {imageUri ? (
                             <TouchableOpacity onPress={() => setSelectedImage(imageUri)} activeOpacity={0.8}>
@@ -819,18 +772,14 @@ export default function ResultsScreen() {
                         </View>
                     </Animated.View>
 
-                    {/* Pink Tax results */}
                     {hasGirl && renderResultCard('Pink Tax', '🚺', '#EC4899', analysisData.girl!, 200)}
 
-                    {/* Tourist Tax results */}
                     {hasTravel &&
                         renderResultCard('Tourist Tax', '🌍', '#3B82F6', analysisData.travel!, hasGirl ? 500 : 200)}
 
-                    {/* General Price Gouging results */}
                     {hasGeneral &&
                         renderResultCard('Price Gouging', '💰', '#F59E0B', analysisData.general!, (hasGirl || hasTravel) ? 800 : 200)}
 
-                    {/* Scan Another */}
                     <Animated.View entering={FadeInUp.delay(800).duration(600)}>
                         <TouchableOpacity style={styles.scanAgainButton} onPress={() => router.back()} activeOpacity={0.7}>
                             <Text style={styles.scanAgainText}>📷  Scan Another Product</Text>
@@ -841,9 +790,6 @@ export default function ResultsScreen() {
         );
     };
 
-    // =====================================================================
-    // MAIN RENDER
-    // =====================================================================
     return (
         <View style={styles.container}>
             {phase === 'identifying' && renderIdentifying()}
@@ -852,7 +798,6 @@ export default function ResultsScreen() {
             {phase === 'results' && renderResults()}
             {phase === 'error' && renderError()}
 
-            {/* Image Zoom Modal */}
             <Modal
                 visible={!!selectedImage}
                 transparent={true}
@@ -885,16 +830,11 @@ export default function ResultsScreen() {
     );
 }
 
-// =====================================================================
-// STYLES
-// =====================================================================
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#FFF0F3' },
 
-    /* ---- Center container ---- */
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
 
-    /* ---- Loading ---- */
     loadingCard: {
         backgroundColor: '#FFFFFF',
         borderRadius: 24,
@@ -928,13 +868,11 @@ const styles = StyleSheet.create({
     loadingModePill: { borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 },
     loadingModeText: { fontSize: 12, color: '#4A2035', fontWeight: '600' },
 
-    /* ---- Analyzing phase ---- */
     analyzeProductInfo: { alignItems: 'center', marginTop: 16, gap: 4 },
     analyzeProductName: { fontSize: 16, fontWeight: '700', color: '#1A1A1A' },
     analyzeProductBrand: { fontSize: 13, color: '#8A6B75', fontWeight: '500' },
     analyzeProductPrice: { fontSize: 14, color: '#FF95B6', fontWeight: '600', marginTop: 4 },
 
-    /* ---- Error ---- */
     errorCard: {
         backgroundColor: '#FFFFFF',
         borderRadius: 24,
@@ -959,7 +897,6 @@ const styles = StyleSheet.create({
     backLink: { paddingVertical: 8 },
     backLinkText: { fontSize: 14, color: '#8A6B75', fontWeight: '600' },
 
-    /* ---- Header ---- */
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -983,7 +920,6 @@ const styles = StyleSheet.create({
     headerTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A1A', letterSpacing: 0.5 },
     headerSpacer: { width: 80 },
 
-    /* ---- ScrollView ---- */
     scrollView: { flex: 1 },
     scrollContent: { padding: 20, paddingBottom: 40 },
     verifyContent: {
@@ -992,7 +928,6 @@ const styles = StyleSheet.create({
         paddingBottom: 40,
     },
 
-    /* ---- Verify card ---- */
     verifyCard: {
         backgroundColor: '#FFFFFF',
         borderRadius: 20,
@@ -1039,7 +974,6 @@ const styles = StyleSheet.create({
         fontStyle: 'italic',
     },
 
-    /* ---- Fields ---- */
     fieldLabel: { fontSize: 12, fontWeight: '700', color: '#8A6B75', marginTop: 12, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
     fieldInput: {
         backgroundColor: '#FFF6F8',
@@ -1053,7 +987,6 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(255,149,182,0.2)',
     },
 
-    /* ---- Price input ---- */
     priceInputLabel: { fontSize: 15, fontWeight: '700', color: '#1A1A1A', marginTop: 8, marginBottom: 8 },
     priceInputRow: {
         flexDirection: 'row',
@@ -1079,12 +1012,10 @@ const styles = StyleSheet.create({
         paddingRight: 14,
     },
 
-    /* ---- Mode info row ---- */
     modeInfoRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
     modePill: { borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 },
     modePillText: { fontSize: 12, color: '#4A2035', fontWeight: '600' },
 
-    /* ---- Buttons ---- */
     analyzeButton: {
         backgroundColor: '#FF95B6',
         borderRadius: 16,
@@ -1105,7 +1036,6 @@ const styles = StyleSheet.create({
     },
     rescanButtonText: { fontSize: 14, fontWeight: '600', color: '#8A6B75' },
 
-    /* ---- Thumb row ---- */
     thumbRow: {
         flexDirection: 'row',
         backgroundColor: '#FFFFFF',
@@ -1132,7 +1062,6 @@ const styles = StyleSheet.create({
     modeBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
     modeBadgeText: { fontSize: 12, fontWeight: '600' },
 
-    /* ---- Result card ---- */
     card: {
         backgroundColor: '#FFFFFF',
         borderRadius: 20,
@@ -1166,7 +1095,6 @@ const styles = StyleSheet.create({
     cardTitle: { fontSize: 17, fontWeight: '700', color: '#1A1A1A', flex: 1 },
     divider: { height: 1, backgroundColor: 'rgba(0,0,0,0.06)', marginVertical: 12 },
 
-    /* ---- Price rows ---- */
     priceRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -1178,7 +1106,6 @@ const styles = StyleSheet.create({
     priceLabelBold: { fontSize: 15, color: '#1A1A1A', fontWeight: '700' },
     priceValueBold: { fontSize: 20, fontWeight: '800' },
 
-    /* ---- Compared to row ---- */
     comparedToRow: {
         marginTop: 6,
         padding: 10,
@@ -1188,7 +1115,6 @@ const styles = StyleSheet.create({
     comparedToLabel: { fontSize: 11, fontWeight: '700', color: '#8B5CF6', marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.3 },
     comparedToValue: { fontSize: 13, color: '#4A2035', lineHeight: 18 },
 
-    /* ---- Mini stats ---- */
     miniStatsRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 18, paddingBottom: 14 },
     miniStat: {
         flex: 1,
@@ -1207,7 +1133,6 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
 
-    /* ---- Compared Item Card ---- */
     comparedItemContainer: {
         marginTop: 12,
         paddingHorizontal: 18,
@@ -1250,7 +1175,6 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
 
-    /* ---- Suggestion ---- */
     suggestionBox: {
         borderTopWidth: 1,
         borderTopColor: 'rgba(0,0,0,0.06)',
@@ -1318,7 +1242,6 @@ const styles = StyleSheet.create({
     },
     suggestionText: { fontSize: 13, color: '#4A2035', lineHeight: 20, marginBottom: 14 },
 
-    /* ---- Scan Again ---- */
     scanAgainButton: {
         backgroundColor: '#FFFFFF',
         borderRadius: 16,
@@ -1329,7 +1252,6 @@ const styles = StyleSheet.create({
     },
     scanAgainText: { fontSize: 16, fontWeight: '700', color: '#FF95B6' },
 
-    /* ---- Verify Currency Dropdown ---- */
     verifyCurrencyDropdown: {
         marginTop: 8,
         backgroundColor: '#FFFFFF',
@@ -1368,7 +1290,6 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
 
-    /* ---- Converted Price ---- */
     convertedPrice: {
         fontSize: 12,
         color: '#8A6B75',
@@ -1379,7 +1300,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 18,
     },
 
-    /* ---- Image Zoom Modal ---- */
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.85)',

@@ -1,13 +1,9 @@
-// Shared data store between scanner and results screens.
-// We store data here instead of passing through URL params
-// (which can break with long data URIs).
 
 let _imageUri: string | null = null;
 let _location: { latitude: number; longitude: number; city?: string; state?: string; country?: string } | null = null;
 let _manualPrice: number | null = null;
 let _currency: string = 'USD';
 
-// Identified product data from Gemini (phase 1)
 export interface IdentifiedProduct {
     brand: string;
     product_name: string;

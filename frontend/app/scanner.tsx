@@ -41,7 +41,6 @@ export default function ScannerScreen() {
     const [imageUri, setImageUri] = useState<string | null>(null);
     const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
-    // Currency selection (still used for passing to results)
     const [selectedCurrency, setSelectedCurrency] = useState('USD');
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [showLocationPicker, setShowLocationPicker] = useState(false);
@@ -49,7 +48,6 @@ export default function ScannerScreen() {
     const [modalState, setModalState] = useState('');
     const [modalCountry, setModalCountry] = useState('');
 
-    // Location state
     const [locationLoading, setLocationLoading] = useState(true);
     const [locationCity, setLocationCity] = useState<string | null>(null);
     const [locationState, setLocationState] = useState<string | null>(null);
@@ -60,10 +58,8 @@ export default function ScannerScreen() {
     } | null>(null);
     const [locationError, setLocationError] = useState<string | null>(null);
 
-    // Web file input ref
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-    // ---- Fetch location on mount ----
     useEffect(() => {
         getLocation();
     }, []);
@@ -263,7 +259,6 @@ export default function ScannerScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Hidden file input for web */}
             {Platform.OS === 'web' && (
                 <input
                     ref={fileInputRef as any}
@@ -275,7 +270,6 @@ export default function ScannerScreen() {
                 />
             )}
 
-            {/* Location Picker Modal */}
             <Modal
                 visible={showLocationPicker}
                 animationType="slide"
@@ -358,7 +352,6 @@ export default function ScannerScreen() {
                 </TouchableWithoutFeedback>
             </Modal>
 
-            {/* Location banner */}
             <Animated.View entering={FadeIn.duration(500)} style={styles.locationBannerContainer}>
                 <View style={styles.locationBannerRow}>
                     <Text style={styles.locationIcon}>📍</Text>
@@ -405,7 +398,6 @@ export default function ScannerScreen() {
                 </View>
             </Animated.View>
 
-            {/* Image preview / capture area */}
             <View style={styles.cameraArea}>
                 {imageUri ? (
                     <Animated.View entering={FadeIn.duration(400)} style={styles.previewContainer}>
@@ -437,7 +429,6 @@ export default function ScannerScreen() {
                                 </View>
                             )}
 
-                            {/* Capture button inside scan box */}
                             <TouchableOpacity
                                 style={styles.captureCircle}
                                 onPress={takePhoto}
@@ -450,7 +441,6 @@ export default function ScannerScreen() {
                 )}
             </View>
 
-            {/* Bottom controls */}
             <Animated.View entering={SlideInUp.duration(600)} style={styles.controlsPanel}>
 
                 <TouchableOpacity
@@ -465,7 +455,6 @@ export default function ScannerScreen() {
 
                 {showAdvanced && (
                     <View>
-                        {/* Mode Toggle Switch */}
                         <Animated.View
                             entering={FadeInDown.delay(100).duration(300)}
                             style={styles.modeToggleContainer}
@@ -500,7 +489,6 @@ export default function ScannerScreen() {
                     </View>
                 )}
 
-                {/* Analyze Button */}
                 <Animated.View entering={FadeInDown.delay(200).duration(500)}>
                     <TouchableOpacity
                         style={[
@@ -541,7 +529,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFF0F3',
     },
 
-    /* ---- Location banner ---- */
     locationBannerContainer: {
         backgroundColor: '#FFFFFF',
         paddingTop: Platform.OS === 'ios' ? 56 : Platform.OS === 'android' ? 44 : 16,
@@ -616,7 +603,6 @@ const styles = StyleSheet.create({
         letterSpacing: 0.3,
     },
 
-    /* ---- Camera area ---- */
     cameraArea: {
         flex: 1,
         backgroundColor: 'transparent',
@@ -760,7 +746,6 @@ const styles = StyleSheet.create({
     cornerBL: { bottom: -1, left: -1, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 20 },
     cornerBR: { bottom: -1, right: -1, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 20 },
 
-    /* ---- Controls panel ---- */
     controlsPanel: {
         backgroundColor: '#FFFFFF',
         borderTopLeftRadius: 28,
@@ -785,7 +770,6 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
 
-    /* ---- Manual price input ---- */
     priceInputContainer: { marginBottom: 16 },
     priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
     currencyButton: {
@@ -884,7 +868,6 @@ const styles = StyleSheet.create({
         fontWeight: '800',
     },
 
-    /* ---- Analyze button ---- */
     analyzeButton: {
         borderRadius: 16,
         paddingVertical: 18,
@@ -897,10 +880,8 @@ const styles = StyleSheet.create({
     analyzeButtonIcon: { fontSize: 14, fontFamily: 'Avenir', fontWeight: '700', color: '#FFFFFF' },
     analyzeButtonText: { fontSize: 17, fontFamily: 'Avenir', fontWeight: '700', color: '#FFFFFF', letterSpacing: 0.5 },
 
-    /* ---- Mode description ---- */
     modeDescription: { fontSize: 13, fontFamily: 'Avenir', color: '#8A6B75', textAlign: 'center', lineHeight: 18 },
 
-    /* ---- Modal Styles ---- */
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(10, 14, 26, 0.5)',

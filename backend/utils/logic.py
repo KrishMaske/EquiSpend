@@ -120,7 +120,6 @@ def add_to_cache(product_data: dict, user_location: str, user_price: float,
     city = location_parts[0] if len(location_parts) > 0 else "Unknown"
     country = location_parts[-1] if len(location_parts) > 1 else "Unknown"
 
-    # Duplicate check
     try:
         existing = supabase.table('cached_products') \
             .select('id') \
@@ -182,7 +181,6 @@ def pick_best_result(shopping_results: list, product_data: dict, mode: str) -> t
     volume = (product_data.get("volume") or "").lower()
     category = (product_data.get("category") or "").lower()
 
-    # Words in SERP titles that signal the result is NOT the actual product
     NEGATIVE_KEYWORDS = [
         "replacement", "refurbished", "renewed", "used", "pre-owned",
         "open box", "case only", "for parts", "parts only",
@@ -193,14 +191,12 @@ def pick_best_result(shopping_results: list, product_data: dict, mode: str) -> t
         "knockoff", "generic", "third party", "3rd party",
     ]
 
-    # Prefer real retailers over marketplace resellers
     PREFERRED_SOURCES = [
         "amazon", "walmart", "target", "best buy", "bestbuy",
         "costco", "staples", "b&h", "adorama", "newegg",
         "official", "apple", "samsung", "google store",
     ]
 
-    # Gender keywords for pink tax scoring
     FEMALE_KEYWORDS = ["women", "woman", "her", "ladies", "female", "girl", "venus", "she"]
     MALE_KEYWORDS = ["men", "man", "his", "male", "boy", "gentleman"]
 
@@ -208,18 +204,15 @@ def pick_best_result(shopping_results: list, product_data: dict, mode: str) -> t
     for result in shopping_results:
         title = (result.get("title") or "").lower()
 
-        # Skip results with no price
         if not result.get("extracted_price"):
             continue
 
-        # Skip results matching negative keywords
         if any(neg in title for neg in NEGATIVE_KEYWORDS):
             print(f"   ❌ Filtered out: '{result.get('title')}' (negative keyword)")
             continue
 
         filtered.append(result)
 
-    # If everything got filtered, fall back to all priced results
     if not filtered:
         filtered = [r for r in shopping_results if r.get("extracted_price")]
         print("   ⚠️ All results filtered — falling back to unfiltered")
@@ -227,7 +220,6 @@ def pick_best_result(shopping_results: list, product_data: dict, mode: str) -> t
     if not filtered:
         return (shopping_results[0], [shopping_results[0]]) if shopping_results else (None, [])
 
-    # Score each result by word overlap + source quality + mode-specific logic
     target_words = set(product_name.split()) | set(brand.split()) | set(volume.split()) | set(category.split())
     target_words -= {"the", "a", "an", "and", "or", "for", "with", "in", "-", "&", ""}
 
@@ -235,39 +227,28 @@ def pick_best_result(shopping_results: list, product_data: dict, mode: str) -> t
         title = (result.get("title") or "").lower()
         title_words = set(title.split())
 
-        # Base: word overlap with original product
         overlap = len(target_words & title_words)
 
-        # Bonus: preferred retailer
         source = (result.get("source") or "").lower()
         
-        # --- FIX 1: Penalize 3rd party sellers ---
-        # SerpAPI usually formats 3rd party sellers with a hyphen (e.g. "Walmart - Pharma Frills")
         is_third_party = "-" in source
         
         source_bonus = 0
         if any(ps in source for ps in PREFERRED_SOURCES):
-            # Target and Walmart 1st-party listings get a huge +4 to force them to the top
             source_bonus = 4 if not is_third_party else 0
 
-        # --- NEW FIX: Delivery App Penalty ---
-        # Instacart, DoorDash, etc., often have wildly inaccurate or localized pricing.
         delivery_apps = ["instacart", "doordash", "uber eats", "shipt", "gopuff", "walgreens delivery"]
         if any(app in source for app in delivery_apps):
-            source_bonus -= 5  # Push these way down the list
+            source_bonus -= 5
             print(f"   📉 Penalized delivery app: {source}")
 
-        # Mode-specific scoring
         mode_bonus = 0
 
         if mode == "girl":
-            # Pink Tax: we WANT the opposite-gender result
             if gender == "women":
-                # Original is women's → we want men's results
                 has_target = any(kw in title for kw in MALE_KEYWORDS)
                 has_original = any(kw in title for kw in FEMALE_KEYWORDS)
             elif gender == "men":
-                # Original is men's → we want women's results
                 has_target = any(kw in title for kw in FEMALE_KEYWORDS)
                 has_original = any(kw in title for kw in MALE_KEYWORDS)
             else:
@@ -275,42 +256,33 @@ def pick_best_result(shopping_results: list, product_data: dict, mode: str) -> t
                 has_original = False
 
             if has_target:
-                mode_bonus += 3  # Boost: correct target gender
+                mode_bonus += 3
             if has_original:
-                mode_bonus -= 3  # Penalize: same gender as original
+                mode_bonus -= 3
 
-            # Bonus: same brand for pink tax (same brand, different gender)
             if brand and brand in title:
                 mode_bonus += 2
 
         else:
-            # Tourist Tax / General: we want the EXACT same product
-            # Bonus for brand match
             if brand and brand in title:
                 mode_bonus += 3
-            # Bonus for close product name match (high overlap)
             if overlap >= 3:
                 mode_bonus += 2
 
-        # --- NEW FIX: The Bulk/Bundle Penalty ---
-        # If the listing implies multiple boxes, nuke its score so it drops to the bottom.
         bulk_penalty = 0
         bulk_red_flags = ["packs of", "pack of 2", "pack of 3", "pack of 4", "pack of 6", "bundle", "ct-total", "total"]
         
         if any(flag in title for flag in bulk_red_flags):
-            bulk_penalty = -10  # Massive penalty to guarantee it doesn't get picked
+            bulk_penalty = -10
             print(f"   📉 Penalized bulk listing: '{title}'")
 
         return overlap + source_bonus + mode_bonus + bulk_penalty
 
-    # --- FIX 2: Tie-break by lowest price ---
-    # Sort primarily by highest score (-score(r)), then secondarily by lowest price
     filtered.sort(key=lambda r: (-score(r), float(r.get("extracted_price", 9999))))
     
     best = filtered[0]
     best_score = score(best)
     
-    # Find similar items (score within 2 of best) to calculate average market price
     similar_items = [r for r in filtered if score(r) >= best_score - 2][:15]
     
     print(f"   🎯 Best match ({mode}, score {best_score}): '{best.get('title')}' at ${best.get('extracted_price')} from {best.get('source')}")
@@ -333,7 +305,6 @@ def run_comparison_analysis(product_data: dict, user_price: float, mode: str, us
     print(f"📦 Product: {product_data.get('brand')} {product_data.get('product_name')}")
     print(f"💰 User price: {user_price}")
 
-    # Determine SERP currency based on user's location gl_code
     gl_code, _ = get_location_codes(user_location)
     
     GL_CURRENCY_MAP = {
@@ -342,7 +313,6 @@ def run_comparison_analysis(product_data: dict, user_price: float, mode: str, us
     }
     serp_currency = GL_CURRENCY_MAP.get(gl_code, "USD")
     
-    # Convert SERP prices to user's selected currency if they differ
     exchange_rate = 1.0
     if serp_currency != user_currency:
         try:
@@ -357,13 +327,9 @@ def run_comparison_analysis(product_data: dict, user_price: float, mode: str, us
     else:
         print(f"💱 No conversion needed — SERP and user both use {user_currency}")
 
-    # ── Step 1: Check cache ──────────────────────────────────────────
-    # Cache now stores prices already converted to the user's currency.
-    # We skip cache if the stored currency doesn't match the user's currency.
     cached = check_cache(product_data, user_location, mode)
     if cached:
         cached_currency = cached.get("serp_currency") or None
-        # Only use cache if it was stored for the same currency context
         if cached_currency == user_currency:
             comp_price = float(cached.get("domestic_price", 0))
             print(f"✅ Cache hit — price already in {user_currency}")
@@ -378,20 +344,16 @@ def run_comparison_analysis(product_data: dict, user_price: float, mode: str, us
         else:
             print(f"⚠️ Cache hit but currency mismatch (cached={cached_currency}, need={user_currency}) — skipping")
 
-    # ── Step 2: Generate comparison search query via Gemini ──────────
     comparison_info = build_comparison_query(product_data, mode)
     search_query = comparison_info.get("search_query", "")
     comparable_desc = comparison_info.get("comparable_description", "")
 
     if not search_query:
-        # Emergency fallback
         brand = product_data.get("brand", "")
         product_name = product_data.get("product_name", "")
         category = product_data.get("category", "")
         search_query = f"{brand} {product_name} {category}"
 
-    # ── Step 3: SERP for the comparison product ──────────────────────
-    # Build a broader fallback query
     brand = product_data.get("brand", "")
     category = product_data.get("category", "")
     gender = product_data.get("gender_marketing", "unisex")
@@ -417,31 +379,21 @@ def run_comparison_analysis(product_data: dict, user_price: float, mode: str, us
             top_price = float(top.get("extracted_price"))
             raw_prices = sorted([float(r.get("extracted_price")) for r in similar_items])
             
-            # --- FIX 1: The Anchor Filter ---
-            # We trust 'top_price' because our previous fix guarantees it's a low-priced, 1st-party source.
-            # If any "similar" item is more than 2.5x the top price, it is 100% a dropshipper 
-            # or a bulk multipack (e.g., 12-count instead of 4-count). Drop it entirely.
             plausible_prices = [p for p in raw_prices if p <= (top_price * 2.5)]
             
-            # --- FIX 2: Median over Mean ---
-            # The median finds the exact middle of the plausible prices. 
-            # It is practically immune to lingering right-skewed outliers.
             if plausible_prices:
                 median_price = statistics.median(plausible_prices)
                 
-                # Find the item whose price is closest to the median
                 closest_item = min(
                     [item for item in similar_items if float(item.get("extracted_price")) in plausible_prices],
                     key=lambda x: abs(float(x.get("extracted_price")) - median_price)
                 )
                 
-                # The comparison price (used for math) is the exact price of the closest item
                 comparison_price = float(closest_item.get("extracted_price"))
             else:
                 comparison_price = top_price
                 closest_item = top
             
-            # We use the 'closest_item' for the suggestion so the image/link matches the math
             suggestion_price = comparison_price
             
             comparable_product = closest_item.get("title", comparable_desc or "Unknown")
@@ -459,7 +411,6 @@ def run_comparison_analysis(product_data: dict, user_price: float, mode: str, us
     else:
         print("⚠️ No comparison products found via SERP")
 
-    # ── Step 4: Determine markup ─────────────────────────────────────
     is_pink_tax = False
     converted_comparison_price = None
     converted_suggestion_price = None
@@ -470,19 +421,18 @@ def run_comparison_analysis(product_data: dict, user_price: float, mode: str, us
         if user_price > converted_comparison_price:
             is_pink_tax = True
 
-    # ── Step 5: Cache the result ─────────────────────────────────────
     if converted_comparison_price:
         add_to_cache(
             product_data=product_data,
             user_location=user_location,
             user_price=user_price,
-            comparison_price=converted_comparison_price,  # Store the converted price
+            comparison_price=converted_comparison_price,
             store_name=store_name,
             is_pink_tax=is_pink_tax,
             comparable_item_name=comparable_product,
             item_link=suggestion_link,
             image_link=suggestion_image,
-            serp_currency=user_currency,  # Tag with the currency it's stored in
+            serp_currency=user_currency,
         )
 
     return {

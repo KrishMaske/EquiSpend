@@ -50,7 +50,6 @@ export default function SignUpScreen() {
                 throw new Error(json.detail ?? 'Sign up failed. Please try again.');
             }
 
-            // After signup, automatically log the user in to get a token
             const loginRes = await apiFetch('/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -63,7 +62,6 @@ export default function SignUpScreen() {
                 await saveAuth(loginJson.access_token, loginJson.user);
             }
 
-            // Save additional user info
             await AsyncStorage.setItem('user_name', name.trim());
             await AsyncStorage.setItem('user_email', email.trim());
             await AsyncStorage.setItem('user_logged_in', 'true');
@@ -71,7 +69,6 @@ export default function SignUpScreen() {
             await AsyncStorage.setItem('profile_lastName', name.trim().split(' ').slice(1).join(' '));
             await AsyncStorage.setItem('profile_email', email.trim());
 
-            // Replace stack so user can't go back to signup/home
             router.replace('/scanner');
         } catch (e: any) {
             setError(e.message ?? 'Sign up failed. Please try again.');
@@ -90,12 +87,10 @@ export default function SignUpScreen() {
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
             >
-                {/* Back arrow */}
                 <TouchableOpacity style={styles.backArrow} onPress={() => router.back()} activeOpacity={0.7}>
                     <Text style={styles.backArrowText}>←</Text>
                 </TouchableOpacity>
 
-                {/* Brand */}
                 <Animated.View entering={FadeIn.duration(800)} style={styles.brandContainer}>
                     <Image source={require('../assets/logo.png')} style={styles.logoImage} />
                     <View style={styles.brandRow}>
@@ -106,7 +101,6 @@ export default function SignUpScreen() {
                     <Text style={styles.brandSubtitle}>Sign Up</Text>
                 </Animated.View>
 
-                {/* Form */}
                 <Animated.View entering={FadeInDown.delay(300).duration(600)} style={styles.formContainer}>
                     <View style={styles.inputGroup}>
                         <Text style={styles.inputLabel}>Name</Text>
@@ -165,7 +159,6 @@ export default function SignUpScreen() {
                     </TouchableOpacity>
                 </Animated.View>
 
-                {/* Bottom */}
                 <Animated.View entering={FadeInDown.delay(600).duration(600)} style={styles.bottomContainer}>
                     <View style={styles.loginRow}>
                         <Text style={styles.loginText}>Already have an account? </Text>
@@ -192,7 +185,6 @@ const styles = StyleSheet.create({
         paddingBottom: 40,
     },
 
-    /* ---- Brand ---- */
     backArrow: {
         alignSelf: 'flex-start',
         marginBottom: 16,
@@ -244,7 +236,6 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
 
-    /* ---- Form ---- */
     formContainer: {
         marginBottom: 32,
     },
@@ -283,7 +274,6 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
 
-    /* ---- Bottom ---- */
     bottomContainer: {
         alignItems: 'center',
         marginTop: 'auto',

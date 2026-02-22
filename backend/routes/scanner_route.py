@@ -34,9 +34,6 @@ def optimize_image(pil_image: Image.Image, max_size: int = 1024) -> Image.Image:
     return pil_image
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# ENDPOINT 1: Identify the product (Gemini vision only)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 @router.post("/scan/identify")
 async def identify_endpoint(
     image: UploadFile = File(...),
@@ -70,9 +67,6 @@ async def identify_endpoint(
         raise HTTPException(status_code=500, detail=f"Error identifying product: {str(e)}")
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# ENDPOINT 2: Analyze (compare pricing)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 @router.post("/scan/analyze")
 async def analyze_endpoint(
     mode: str = Form(...),
@@ -126,7 +120,6 @@ async def analyze_endpoint(
             }
 
         if mode == "both":
-            # ── Run TWO separate analyses: Pink Tax + Tourist Tax ──
             print("🔀 Both mode: running Pink Tax analysis...")
             girl_result = run_comparison_analysis(product_data, price, "girl", user_location, currency or "USD")
             girl_formatted = format_result(girl_result, price)
@@ -143,7 +136,6 @@ async def analyze_endpoint(
             return {"status": "success", "data": {"general": formatted}}
 
         else:
-            # Single mode: 'girl' or 'travel'
             result = run_comparison_analysis(product_data, price, mode, user_location, currency or "USD")
             formatted = format_result(result, price)
             return {"status": "success", "data": formatted}

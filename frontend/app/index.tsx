@@ -27,7 +27,6 @@ export default function HomeScreen() {
                     return;
                 }
             } catch (e) {
-                // silently fail — show login screen
             }
             setCheckingAuth(false);
         };
@@ -44,12 +43,10 @@ export default function HomeScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Background gradient circles */}
             <View style={styles.gradientCircle1} />
             <View style={styles.gradientCircle2} />
             <View style={styles.gradientCircle3} />
 
-            {/* Logo area */}
             <Animated.View entering={FadeIn.duration(1200)} style={styles.logoContainer}>
                 <View style={styles.logoIconContainer}>
                     <Image source={require('../assets/logo.png')} style={styles.logoImage} />
@@ -60,7 +57,6 @@ export default function HomeScreen() {
                 </View>
             </Animated.View>
 
-            {/* Tagline */}
             <Animated.View entering={FadeInDown.delay(400).duration(800)} style={styles.taglineContainer}>
                 <Text style={styles.tagline}>
                     Scan. Compare. Save.
@@ -70,7 +66,6 @@ export default function HomeScreen() {
                 </Text>
             </Animated.View>
 
-            {/* Buttons */}
             <Animated.View entering={FadeInDown.delay(800).duration(600)} style={styles.buttonsContainer}>
                 <TouchableOpacity
                     style={styles.loginButton}
@@ -89,7 +84,6 @@ export default function HomeScreen() {
                 </TouchableOpacity>
             </Animated.View>
 
-            {/* Bottom decorative line */}
             <View style={styles.bottomBar} />
         </View>
     );
@@ -177,7 +171,6 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
 
-    /* ---- Buttons ---- */
     buttonsContainer: {
         width: '100%',
         paddingHorizontal: 40,

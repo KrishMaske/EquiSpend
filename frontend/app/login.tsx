@@ -45,12 +45,10 @@ export default function LoginScreen() {
                 throw new Error(json.detail ?? 'Invalid email or password');
             }
 
-            // Store auth token and user data
             await saveAuth(json.access_token, json.user);
             await AsyncStorage.setItem('user_email', email.trim());
             await AsyncStorage.setItem('user_logged_in', 'true');
 
-            // Replace stack so user can't go back to login/home
             router.replace('/scanner');
         } catch (e: any) {
             setError(e.message ?? 'Login failed. Please try again.');
@@ -69,12 +67,10 @@ export default function LoginScreen() {
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
             >
-                {/* Back arrow */}
                 <TouchableOpacity style={styles.backArrow} onPress={() => router.back()} activeOpacity={0.7}>
                     <Text style={styles.backArrowText}>←</Text>
                 </TouchableOpacity>
 
-                {/* Logo / Brand */}
                 <Animated.View entering={FadeIn.duration(800)} style={styles.brandContainer}>
                     <Image source={require('../assets/logo.png')} style={styles.logoImage} />
                     <View style={styles.brandRow}>
@@ -85,7 +81,6 @@ export default function LoginScreen() {
                     <Text style={styles.brandSubtitle}>Login</Text>
                 </Animated.View>
 
-                {/* Form */}
                 <Animated.View entering={FadeInDown.delay(300).duration(600)} style={styles.formContainer}>
                     <View style={styles.inputGroup}>
                         <Text style={styles.inputLabel}>Email Address</Text>
@@ -134,7 +129,6 @@ export default function LoginScreen() {
                     </TouchableOpacity>
                 </Animated.View>
 
-                {/* Bottom */}
                 <Animated.View entering={FadeInDown.delay(600).duration(600)} style={styles.bottomContainer}>
                     <View style={styles.signupRow}>
                         <Text style={styles.signupText}>Don't have an account? </Text>
@@ -161,7 +155,6 @@ const styles = StyleSheet.create({
         paddingBottom: 40,
     },
 
-    /* ---- Brand ---- */
     backArrow: {
         alignSelf: 'flex-start',
         marginBottom: 16,
@@ -213,7 +206,6 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
 
-    /* ---- Form ---- */
     formContainer: {
         marginBottom: 32,
     },
@@ -260,7 +252,6 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
 
-    /* ---- Bottom ---- */
     bottomContainer: {
         alignItems: 'center',
         marginTop: 'auto',

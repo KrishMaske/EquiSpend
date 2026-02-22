@@ -28,14 +28,12 @@ export default function ProfileScreen() {
     const [homeCurrency, setHomeCurrency] = useState('USD');
     const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
 
-    // Load saved profile data on mount
     useEffect(() => {
         loadProfile();
     }, []);
 
     const loadProfile = async () => {
         try {
-            // Load user data from auth if profile fields are empty
             const user = await getUser();
             const data = await AsyncStorage.multiGet([
                 'profile_firstName',
@@ -51,7 +49,6 @@ export default function ProfileScreen() {
                 if (value) map[key] = value;
             });
 
-            // Pre-fill email from auth user if not saved in profile yet
             const authEmail = user?.email ?? '';
             setFirstName(map['profile_firstName'] ?? '');
             setLastName(map['profile_lastName'] ?? '');
@@ -61,7 +58,6 @@ export default function ProfileScreen() {
             setPassword(map['profile_password'] ?? '');
             setHomeCurrency(map['profile_homeCurrency'] ?? 'USD');
         } catch (e) {
-            // silently fail
         }
     };
 
@@ -79,7 +75,6 @@ export default function ProfileScreen() {
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
         } catch (e) {
-            // silently fail
         }
     };
 
@@ -93,7 +88,6 @@ export default function ProfileScreen() {
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
             >
-                {/* Header */}
                 <Animated.View entering={FadeIn.duration(600)} style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
                         <Text style={styles.backArrowText}>←</Text>
@@ -102,13 +96,11 @@ export default function ProfileScreen() {
                     <View style={{ width: 28 }} />
                 </Animated.View>
 
-                {/* Avatar area */}
                 <Animated.View entering={FadeIn.duration(800)} style={styles.avatarContainer}>
                     <Image source={require('../assets/logo.png')} style={styles.avatarImage} />
                     <Text style={styles.avatarLabel}>Your Profile</Text>
                 </Animated.View>
 
-                {/* Form */}
                 <Animated.View entering={FadeInDown.delay(200).duration(600)} style={styles.formContainer}>
                     <View style={styles.row}>
                         <View style={[styles.inputGroup, styles.halfInput]}>
@@ -192,7 +184,6 @@ export default function ProfileScreen() {
                         />
                     </View>
 
-                    {/* ---- Preferences Section ---- */}
                     <View style={styles.sectionDivider} />
                     <Text style={styles.sectionTitle}>Preferences</Text>
 
@@ -268,7 +259,6 @@ const styles = StyleSheet.create({
         paddingBottom: 40,
     },
 
-    /* ---- Header ---- */
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -292,7 +282,6 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
 
-    /* ---- Avatar ---- */
     avatarContainer: {
         alignItems: 'center',
         paddingVertical: 28,
@@ -311,7 +300,6 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
     },
 
-    /* ---- Form ---- */
     formContainer: {
         paddingHorizontal: 24,
     },
@@ -357,7 +345,6 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
 
-    /* ---- Preferences ---- */
     sectionDivider: {
         height: 1,
         backgroundColor: 'rgba(255,149,182,0.2)',
