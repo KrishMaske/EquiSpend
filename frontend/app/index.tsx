@@ -1,98 +1,86 @@
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
 import {
     StyleSheet,
     Text,
-    TouchableWithoutFeedback,
+    TouchableOpacity,
     View,
     Dimensions,
+    Image,
 } from 'react-native';
-import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    withRepeat,
-    withTiming,
-    Easing,
-    FadeIn,
-    FadeInDown,
-} from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
 const { width, height } = Dimensions.get('window');
 
-export default function SplashScreen() {
+export default function HomeScreen() {
     const router = useRouter();
-    const pulseOpacity = useSharedValue(0.4);
-
-    useEffect(() => {
-        pulseOpacity.value = withRepeat(
-            withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-            -1,
-            true
-        );
-    }, []);
-
-    const pulseStyle = useAnimatedStyle(() => ({
-        opacity: pulseOpacity.value,
-    }));
-
-    const handleTap = () => {
-        router.push('/scanner');
-    };
 
     return (
-        <TouchableWithoutFeedback onPress={handleTap}>
-            <View style={styles.container}>
-                {/* Background gradient circles */}
-                <View style={styles.gradientCircle1} />
-                <View style={styles.gradientCircle2} />
-                <View style={styles.gradientCircle3} />
+        <View style={styles.container}>
+            {/* Background gradient circles */}
+            <View style={styles.gradientCircle1} />
+            <View style={styles.gradientCircle2} />
+            <View style={styles.gradientCircle3} />
 
-                {/* Logo area */}
-                <Animated.View entering={FadeIn.duration(1200)} style={styles.logoContainer}>
-                    <View style={styles.logoIconContainer}>
-                        <Text style={styles.logoIcon}>⚖️</Text>
-                    </View>
+            {/* Logo area */}
+            <Animated.View entering={FadeIn.duration(1200)} style={styles.logoContainer}>
+                <View style={styles.logoIconContainer}>
+                    <Image source={require('../assets/logo.png')} style={styles.logoImage} />
+                </View>
+                <View style={styles.brandRow}>
                     <Text style={styles.title}>Equi</Text>
                     <Text style={styles.titleAccent}>Spend</Text>
-                </Animated.View>
+                </View>
+            </Animated.View>
 
-                {/* Tagline */}
-                <Animated.View entering={FadeInDown.delay(600).duration(1000)} style={styles.taglineContainer}>
-                    <Text style={styles.tagline}>
-                        Scan. Compare. Save.
-                    </Text>
-                    <Text style={styles.subtitle}>
-                        Detect hidden price markups in real-time
-                    </Text>
-                </Animated.View>
+            {/* Tagline */}
+            <Animated.View entering={FadeInDown.delay(400).duration(800)} style={styles.taglineContainer}>
+                <Text style={styles.tagline}>
+                    Scan. Compare. Save.
+                </Text>
+                <Text style={styles.subtitle}>
+                    Detect hidden price markups in real-time
+                </Text>
+            </Animated.View>
 
-                {/* Tap to start */}
-                <Animated.View style={[styles.tapContainer, pulseStyle]}>
-                    <Text style={styles.tapText}>Tap anywhere to start</Text>
-                    <Text style={styles.tapArrow}>↓</Text>
-                </Animated.View>
+            {/* Buttons */}
+            <Animated.View entering={FadeInDown.delay(800).duration(600)} style={styles.buttonsContainer}>
+                <TouchableOpacity
+                    style={styles.loginButton}
+                    onPress={() => router.push('/login')}
+                    activeOpacity={0.8}
+                >
+                    <Text style={styles.loginButtonText}>Log In</Text>
+                </TouchableOpacity>
 
-                {/* Bottom decorative line */}
-                <View style={styles.bottomBar} />
-            </View>
-        </TouchableWithoutFeedback>
+                <TouchableOpacity
+                    style={styles.signUpButton}
+                    onPress={() => router.push('/signup')}
+                    activeOpacity={0.8}
+                >
+                    <Text style={styles.signUpButtonText}>Sign Up</Text>
+                </TouchableOpacity>
+            </Animated.View>
+
+            {/* Bottom decorative line */}
+            <View style={styles.bottomBar} />
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0A0E1A',
         alignItems: 'center',
         justifyContent: 'center',
         overflow: 'hidden',
+        backgroundColor: '#FFF0F3',
     },
     gradientCircle1: {
         position: 'absolute',
         width: width * 1.2,
         height: width * 1.2,
         borderRadius: width * 0.6,
-        backgroundColor: 'rgba(99, 102, 241, 0.08)',
+        backgroundColor: 'rgba(255, 149, 182, 0.12)',
         top: -width * 0.4,
         left: -width * 0.3,
     },
@@ -101,7 +89,7 @@ const styles = StyleSheet.create({
         width: width * 0.8,
         height: width * 0.8,
         borderRadius: width * 0.4,
-        backgroundColor: 'rgba(236, 72, 153, 0.06)',
+        backgroundColor: 'rgba(255, 182, 193, 0.15)',
         bottom: -width * 0.2,
         right: -width * 0.2,
     },
@@ -110,40 +98,45 @@ const styles = StyleSheet.create({
         width: width * 0.5,
         height: width * 0.5,
         borderRadius: width * 0.25,
-        backgroundColor: 'rgba(16, 185, 129, 0.05)',
+        backgroundColor: 'rgba(255, 200, 210, 0.12)',
         bottom: height * 0.3,
         left: -width * 0.1,
     },
     logoContainer: {
-        flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 24,
     },
     logoIconContainer: {
-        marginRight: 12,
+        marginBottom: 12,
     },
-    logoIcon: {
-        fontSize: 48,
+    logoImage: {
+        width: 140,
+        height: 140,
+        resizeMode: 'contain',
+    },
+    brandRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     title: {
         fontSize: 52,
         fontWeight: '200',
-        color: '#FFFFFF',
+        color: '#1A1A1A',
         letterSpacing: -1,
     },
     titleAccent: {
         fontSize: 52,
         fontWeight: '800',
-        color: '#818CF8',
+        color: '#FF95B6',
         letterSpacing: -1,
     },
     taglineContainer: {
         alignItems: 'center',
-        marginBottom: 80,
+        marginBottom: 56,
     },
     tagline: {
         fontSize: 18,
-        color: '#94A3B8',
+        color: '#4A2035',
         fontWeight: '600',
         letterSpacing: 4,
         textTransform: 'uppercase',
@@ -151,32 +144,50 @@ const styles = StyleSheet.create({
     },
     subtitle: {
         fontSize: 14,
-        color: '#475569',
+        color: '#8A6B75',
         fontWeight: '400',
         letterSpacing: 0.5,
     },
-    tapContainer: {
-        position: 'absolute',
-        bottom: 100,
+
+    /* ---- Buttons ---- */
+    buttonsContainer: {
+        width: '100%',
+        paddingHorizontal: 40,
+        gap: 14,
+    },
+    loginButton: {
+        backgroundColor: '#1A1A1A',
+        borderRadius: 14,
+        paddingVertical: 18,
         alignItems: 'center',
     },
-    tapText: {
-        fontSize: 14,
-        color: '#64748B',
-        fontWeight: '500',
-        letterSpacing: 1,
+    loginButtonText: {
+        fontSize: 17,
+        fontWeight: '700',
+        color: '#FFFFFF',
+        letterSpacing: 0.5,
     },
-    tapArrow: {
-        fontSize: 18,
-        color: '#64748B',
-        marginTop: 4,
+    signUpButton: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 14,
+        paddingVertical: 18,
+        alignItems: 'center',
+        borderWidth: 1.5,
+        borderColor: '#1A1A1A',
     },
+    signUpButtonText: {
+        fontSize: 17,
+        fontWeight: '700',
+        color: '#1A1A1A',
+        letterSpacing: 0.5,
+    },
+
     bottomBar: {
         position: 'absolute',
         bottom: 40,
         width: 60,
         height: 4,
         borderRadius: 2,
-        backgroundColor: '#1E293B',
+        backgroundColor: '#FFCDD9',
     },
 });

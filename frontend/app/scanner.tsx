@@ -12,9 +12,11 @@ import {
     Platform,
     ActivityIndicator,
     ScrollView,
+    Switch,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import Animated, { FadeIn, FadeInDown, SlideInUp } from 'react-native-reanimated';
 import { setSharedImage, setSharedLocation, setSharedManualPrice } from '../image-store';
 
@@ -42,13 +44,14 @@ const CURRENCIES = [
 ];
 
 const { width } = Dimensions.get('window');
-const PREVIEW_SIZE = width > 500 ? 320 : width * 0.65;
+const PREVIEW_SIZE = width > 500 ? 380 : width * 0.85;
 
 export default function ScannerScreen() {
     const router = useRouter();
     const [girlActive, setGirlActive] = useState(true);
     const [travelActive, setTravelActive] = useState(false);
     const [imageUri, setImageUri] = useState<string | null>(null);
+    const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
     // Manual price state
     const [manualPriceText, setManualPriceText] = useState('');
@@ -78,8 +81,6 @@ export default function ScannerScreen() {
         setLocationError(null);
         try {
             if (Platform.OS === 'web') {
-                // expo-location reverse geocode doesn't work on web.
-                // Fall back to IP-based geolocation (no permission needed).
                 const res = await fetch('https://ipapi.co/json/');
                 if (!res.ok) throw new Error('IP geolocation failed');
                 const data = await res.json();
@@ -91,7 +92,6 @@ export default function ScannerScreen() {
                 setLocationCity(data.city ?? data.region ?? null);
                 setLocationCountry(data.country_name ?? null);
             } else {
-                // Native: use GPS + reverse geocode
                 const { status } = await Location.requestForegroundPermissionsAsync();
                 if (status !== 'granted') {
                     setLocationError('Location permission denied');
@@ -108,7 +108,6 @@ export default function ScannerScreen() {
                     longitude: loc.coords.longitude,
                 });
 
-                // Reverse geocode to get city & country
                 const [geo] = await Location.reverseGeocodeAsync({
                     latitude: loc.coords.latitude,
                     longitude: loc.coords.longitude,
@@ -135,7 +134,6 @@ export default function ScannerScreen() {
 
     const atLeastOneMode = girlActive || travelActive;
 
-    // ---- Take a photo (native camera or web file input with capture) ----
     const takePhoto = async () => {
         if (Platform.OS === 'web') {
             if (fileInputRef.current) {
@@ -163,7 +161,6 @@ export default function ScannerScreen() {
         }
     };
 
-    // ---- Pick from photo library ----
     const pickImage = async () => {
         if (Platform.OS === 'web') {
             if (fileInputRef.current) {
@@ -191,7 +188,6 @@ export default function ScannerScreen() {
         }
     };
 
-    // ---- Web file input handler ----
     const handleWebFileSelect = (event: any) => {
         const file = event.target?.files?.[0];
         if (file) {
@@ -204,7 +200,6 @@ export default function ScannerScreen() {
         }
     };
 
-    // ---- Navigate to results ----
     const handleAnalyze = () => {
         if (!imageUri) {
             if (Platform.OS === 'web') {
@@ -223,7 +218,6 @@ export default function ScannerScreen() {
             return;
         }
 
-        // Store image + location + manual price in shared memory
         setSharedImage(imageUri);
         setSharedLocation(
             locationCoords
@@ -245,12 +239,12 @@ export default function ScannerScreen() {
 
     const bothActive = girlActive && travelActive;
     const scanButtonColor = bothActive
-        ? '#8B5CF6'
+        ? '#D46A92'
         : girlActive
             ? '#EC4899'
             : travelActive
                 ? '#3B82F6'
-                : '#334155';
+                : '#C8AAB2';
 
     const locationDisplay = locationLoading
         ? 'Detecting…'
@@ -279,12 +273,12 @@ export default function ScannerScreen() {
                     <Text style={styles.locationLabel}>Your Location</Text>
                     {locationLoading ? (
                         <View style={styles.locationLoadingRow}>
-                            <ActivityIndicator size="small" color="#818CF8" />
+                            <ActivityIndicator size="small" color="#FF95B6" />
                             <Text style={styles.locationValue}>Detecting…</Text>
                         </View>
                     ) : locationError ? (
                         <TouchableOpacity onPress={getLocation} activeOpacity={0.7}>
-                            <Text style={[styles.locationValue, { color: '#F87171' }]}>
+                            <Text style={[styles.locationValue, { color: '#DC2626' }]}>
                                 {locationError} — Tap to retry
                             </Text>
                         </TouchableOpacity>
@@ -297,6 +291,12 @@ export default function ScannerScreen() {
                         <Text style={styles.locationRefreshText}>↻</Text>
                     </TouchableOpacity>
                 )}
+                <TouchableOpacity onPress={() => router.push('/history')} activeOpacity={0.7} style={styles.profileButton}>
+                    <Text style={styles.profileButtonText}>History</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push('/profile')} activeOpacity={0.7} style={styles.profileButton}>
+                    <Text style={styles.profileButtonText}>Profile</Text>
+                </TouchableOpacity>
             </Animated.View>
 
             {/* Image preview / capture area */}
@@ -320,34 +320,24 @@ export default function ScannerScreen() {
                             <View style={[styles.corner, styles.cornerBL]} />
                             <View style={[styles.corner, styles.cornerBR]} />
 
-                            <View style={styles.placeholderContent}>
-                                <Text style={styles.placeholderEmoji}>📷</Text>
-                                <Text style={styles.placeholderText}>
-                                    Take a photo or upload an image
-                                </Text>
-                                <Text style={styles.placeholderSubText}>
-                                    Point at a product, price tag, or receipt
-                                </Text>
-                            </View>
-                        </View>
+                            {Platform.OS !== 'web' && cameraPermission?.granted ? (
+                                <CameraView style={styles.cameraPreview} facing="back" />
+                            ) : (
+                                <View style={styles.placeholderContent}>
+                                    <Text style={styles.placeholderEmoji}>Scan</Text>
+                                    <Text style={styles.placeholderText}>
+                                        Point at a product
+                                    </Text>
+                                </View>
+                            )}
 
-                        <View style={styles.captureButtons}>
+                            {/* Capture button inside scan box */}
                             <TouchableOpacity
-                                style={styles.captureButton}
+                                style={styles.captureCircle}
                                 onPress={takePhoto}
                                 activeOpacity={0.7}
                             >
-                                <Text style={styles.captureEmoji}>📸</Text>
-                                <Text style={styles.captureText}>Camera</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={styles.captureButton}
-                                onPress={pickImage}
-                                activeOpacity={0.7}
-                            >
-                                <Text style={styles.captureEmoji}>🖼️</Text>
-                                <Text style={styles.captureText}>Upload</Text>
+                                <View style={styles.captureCircleInner} />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -359,9 +349,8 @@ export default function ScannerScreen() {
                 {/* Manual Price Input */}
                 <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.priceInputContainer}>
                     <Text style={styles.modeLabel}>Manual Price (Optional)</Text>
-                    <Text style={styles.modeHint}>Override the price detected from the image</Text>
+                    <Text style={{ fontSize: 11, fontFamily: 'Avenir', color: '#B8708A', marginBottom: 10 }}>Override detected price</Text>
                     <View style={styles.priceRow}>
-                        {/* Currency picker button */}
                         <TouchableOpacity
                             style={styles.currencyButton}
                             onPress={() => setShowCurrencyPicker((p) => !p)}
@@ -373,11 +362,10 @@ export default function ScannerScreen() {
                             <Text style={styles.currencyChevron}>{showCurrencyPicker ? '▲' : '▼'}</Text>
                         </TouchableOpacity>
 
-                        {/* Price text input */}
                         <TextInput
                             style={styles.priceInput}
                             placeholder="e.g. 12.99"
-                            placeholderTextColor="#475569"
+                            placeholderTextColor="#B8708A"
                             keyboardType="decimal-pad"
                             value={manualPriceText}
                             onChangeText={setManualPriceText}
@@ -391,7 +379,6 @@ export default function ScannerScreen() {
                         )}
                     </View>
 
-                    {/* Currency dropdown list */}
                     {showCurrencyPicker && (
                         <View style={styles.currencyDropdown}>
                             <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
@@ -420,43 +407,33 @@ export default function ScannerScreen() {
                     )}
                 </Animated.View>
 
-                {/* Mode Toggles */}
+                {/* Mode Toggle Switch */}
                 <Animated.View
                     entering={FadeInDown.delay(200).duration(500)}
                     style={styles.modeToggleContainer}
                 >
                     <Text style={styles.modeLabel}>Analysis Modes</Text>
-                    <Text style={styles.modeHint}>Select one or both</Text>
-                    <View style={styles.modeToggle}>
-                        <TouchableOpacity
-                            style={[styles.modeButton, girlActive && styles.modeButtonActiveGirl]}
-                            onPress={() => setGirlActive((p) => !p)}
-                            activeOpacity={0.8}
-                        >
-                            <Text style={styles.modeEmoji}>🚺</Text>
-                            <View style={styles.modeTextGroup}>
-                                <Text style={[styles.modeButtonText, girlActive && styles.modeButtonTextActive]}>
-                                    Girl Mode
-                                </Text>
-                                <Text style={styles.modeButtonSub}>Pink Tax</Text>
-                            </View>
-                            {girlActive && <Text style={styles.checkmark}>✓</Text>}
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[styles.modeButton, travelActive && styles.modeButtonActiveTravel]}
-                            onPress={() => setTravelActive((p) => !p)}
-                            activeOpacity={0.8}
-                        >
-                            <Text style={styles.modeEmoji}>🌍</Text>
-                            <View style={styles.modeTextGroup}>
-                                <Text style={[styles.modeButtonText, travelActive && styles.modeButtonTextActive]}>
-                                    Travel Mode
-                                </Text>
-                                <Text style={styles.modeButtonSub}>Tourist Tax</Text>
-                            </View>
-                            {travelActive && <Text style={styles.checkmark}>✓</Text>}
-                        </TouchableOpacity>
+                    <View style={styles.toggleRow}>
+                        <View style={styles.toggleItem}>
+                            <Text style={[styles.toggleLabel, girlActive && styles.toggleLabelActive]}>Pink Tax</Text>
+                            <Switch
+                                value={girlActive}
+                                onValueChange={setGirlActive}
+                                trackColor={{ false: '#E8D5DB', true: '#FFCDD9' }}
+                                thumbColor={girlActive ? '#EC4899' : '#C8AAB2'}
+                                ios_backgroundColor="#E8D5DB"
+                            />
+                        </View>
+                        <View style={styles.toggleItem}>
+                            <Text style={[styles.toggleLabel, travelActive && styles.toggleLabelActiveTravel]}>Travel</Text>
+                            <Switch
+                                value={travelActive}
+                                onValueChange={setTravelActive}
+                                trackColor={{ false: '#E8D5DB', true: '#93C5FD' }}
+                                thumbColor={travelActive ? '#3B82F6' : '#C8AAB2'}
+                                ios_backgroundColor="#E8D5DB"
+                            />
+                        </View>
                     </View>
                 </Animated.View>
 
@@ -465,14 +442,14 @@ export default function ScannerScreen() {
                     <TouchableOpacity
                         style={[
                             styles.analyzeButton,
-                            { backgroundColor: atLeastOneMode ? scanButtonColor : '#334155' },
+                            { backgroundColor: atLeastOneMode ? scanButtonColor : '#C8AAB2' },
                             !imageUri && styles.analyzeButtonDim,
                         ]}
                         onPress={handleAnalyze}
                         activeOpacity={0.7}
                     >
                         <View style={styles.analyzeButtonInner}>
-                            <Text style={styles.analyzeButtonIcon}>🔍</Text>
+                            <Text style={styles.analyzeButtonIcon}>Scan</Text>
                             <Text style={styles.analyzeButtonText}>
                                 {imageUri ? 'Analyze Product' : 'Select an Image First'}
                             </Text>
@@ -482,12 +459,12 @@ export default function ScannerScreen() {
 
                 <Text style={styles.modeDescription}>
                     {bothActive
-                        ? 'Checks for both Pink Tax and Tourist Tax on this product'
+                        ? 'Checks for Pink Tax & Tourist Tax'
                         : girlActive
-                            ? 'Detects the "Pink Tax" – price gaps on gendered products'
+                            ? 'Detects price gaps on gendered products'
                             : travelActive
-                                ? 'Detects the "Tourist Tax" – inflated prices for travelers'
-                                : 'Select a mode to begin analysis'}
+                                ? 'Detects inflated prices for travelers'
+                                : 'Select a mode to begin'}
                 </Text>
             </Animated.View>
         </View>
@@ -497,30 +474,31 @@ export default function ScannerScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0A0E1A',
+        backgroundColor: '#FFF0F3',
     },
 
     /* ---- Location banner ---- */
     locationBanner: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#111827',
+        backgroundColor: '#FFFFFF',
         paddingTop: Platform.OS === 'ios' ? 56 : Platform.OS === 'android' ? 44 : 16,
         paddingBottom: 12,
         paddingHorizontal: 20,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(129, 140, 248, 0.1)',
+        borderBottomColor: 'rgba(255, 149, 182, 0.2)',
         gap: 10,
     },
     locationIcon: {
-        fontSize: 22,
+        fontSize: 20,
     },
     locationTextGroup: {
         flex: 1,
     },
     locationLabel: {
         fontSize: 10,
-        color: '#64748B',
+        color: '#8A6B75',
+        fontFamily: 'Avenir',
         fontWeight: '600',
         letterSpacing: 1,
         textTransform: 'uppercase',
@@ -533,27 +511,43 @@ const styles = StyleSheet.create({
     },
     locationValue: {
         fontSize: 15,
-        color: '#E2E8F0',
+        color: '#1A1A1A',
+        fontFamily: 'Avenir',
         fontWeight: '600',
     },
     locationRefresh: {
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: 'rgba(129, 140, 248, 0.12)',
+        backgroundColor: 'rgba(255, 149, 182, 0.15)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     locationRefreshText: {
         fontSize: 18,
-        color: '#818CF8',
+        color: '#FF95B6',
         fontWeight: '700',
+    },
+    profileButton: {
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255, 149, 182, 0.15)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    profileButtonText: {
+        fontSize: 11,
+        fontFamily: 'Avenir',
+        fontWeight: '700',
+        color: '#FF95B6',
+        letterSpacing: 0.3,
     },
 
     /* ---- Camera area ---- */
     cameraArea: {
         flex: 1,
-        backgroundColor: '#111827',
+        backgroundColor: 'transparent',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -568,28 +562,40 @@ const styles = StyleSheet.create({
         width: PREVIEW_SIZE,
         height: PREVIEW_SIZE,
         borderWidth: 1,
-        borderColor: 'rgba(129, 140, 248, 0.15)',
+        borderColor: 'rgba(255, 149, 182, 0.15)',
         borderRadius: 20,
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: 'transparent',
+        overflow: 'hidden',
+    },
+    cameraPreview: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 20,
     },
     placeholderContent: {
         alignItems: 'center',
         paddingHorizontal: 20,
     },
     placeholderEmoji: {
-        fontSize: 56,
+        fontSize: 28,
+        fontFamily: 'Avenir',
+        fontWeight: '800',
+        color: '#FF95B6',
         marginBottom: 16,
     },
     placeholderText: {
         fontSize: 16,
-        color: '#64748B',
+        color: '#4A2035',
+        fontFamily: 'Avenir',
         fontWeight: '600',
         textAlign: 'center',
     },
     placeholderSubText: {
         fontSize: 13,
-        color: '#475569',
+        fontFamily: 'Avenir',
+        color: '#8A6B75',
         marginTop: 6,
         textAlign: 'center',
     },
@@ -604,19 +610,43 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        backgroundColor: '#1E293B',
+        backgroundColor: 'rgba(255, 255, 255, 0.6)',
         paddingVertical: 16,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: 'rgba(129, 140, 248, 0.15)',
+        borderColor: 'rgba(255, 149, 182, 0.2)',
+    },
+    captureCircle: {
+        position: 'absolute',
+        bottom: 16,
+        alignSelf: 'center',
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: 'rgba(255, 255, 255, 0.3)',
+        borderWidth: 3,
+        borderColor: '#FFFFFF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10,
+    },
+    captureCircleInner: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: '#FFFFFF',
     },
     captureEmoji: {
-        fontSize: 20,
+        fontSize: 13,
+        fontFamily: 'Avenir',
+        fontWeight: '600',
+        color: '#FF95B6',
     },
     captureText: {
         fontSize: 15,
+        fontFamily: 'Avenir',
         fontWeight: '600',
-        color: '#94A3B8',
+        color: '#4A2035',
     },
     previewContainer: {
         width: PREVIEW_SIZE + 20,
@@ -624,7 +654,7 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         overflow: 'hidden',
         borderWidth: 2,
-        borderColor: 'rgba(129, 140, 248, 0.3)',
+        borderColor: 'rgba(255, 149, 182, 0.4)',
     },
     previewImage: {
         width: '100%',
@@ -638,7 +668,7 @@ const styles = StyleSheet.create({
         width: 36,
         height: 36,
         borderRadius: 18,
-        backgroundColor: 'rgba(0,0,0,0.6)',
+        backgroundColor: 'rgba(0,0,0,0.5)',
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -651,7 +681,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         width: 28,
         height: 28,
-        borderColor: '#818CF8',
+        borderColor: '#FF95B6',
     },
     cornerTL: { top: -1, left: -1, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 20 },
     cornerTR: { top: -1, right: -1, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 20 },
@@ -660,14 +690,14 @@ const styles = StyleSheet.create({
 
     /* ---- Controls panel ---- */
     controlsPanel: {
-        backgroundColor: '#0F1629',
+        backgroundColor: '#FFFFFF',
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
         paddingHorizontal: 24,
         paddingTop: 24,
         paddingBottom: Platform.OS === 'ios' ? 40 : 36,
         borderTopWidth: 1,
-        borderTopColor: 'rgba(129, 140, 248, 0.1)',
+        borderTopColor: 'rgba(255, 149, 182, 0.15)',
     },
 
     /* ---- Manual price input ---- */
@@ -676,44 +706,44 @@ const styles = StyleSheet.create({
     currencyButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#1E293B',
+        backgroundColor: '#FFF0F3',
         borderWidth: 1,
-        borderColor: 'rgba(129,140,248,0.25)',
+        borderColor: 'rgba(255,149,182,0.3)',
         borderRadius: 12,
         paddingHorizontal: 12,
         paddingVertical: 12,
         gap: 6,
         minWidth: 90,
     },
-    currencyButtonText: { fontSize: 13, fontWeight: '700', color: '#818CF8' },
-    currencyChevron: { fontSize: 10, color: '#64748B' },
+    currencyButtonText: { fontSize: 13, fontWeight: '700', color: '#FF95B6' },
+    currencyChevron: { fontSize: 10, color: '#8A6B75' },
     priceInput: {
         flex: 1,
-        backgroundColor: '#1E293B',
+        backgroundColor: '#FFF0F3',
         borderWidth: 1,
-        borderColor: 'rgba(129,140,248,0.25)',
+        borderColor: 'rgba(255,149,182,0.3)',
         borderRadius: 12,
         paddingHorizontal: 14,
         paddingVertical: 12,
         fontSize: 15,
-        color: '#FFFFFF',
+        color: '#1A1A1A',
         fontWeight: '600',
     },
     priceClearBtn: {
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: 'rgba(100,116,139,0.2)',
+        backgroundColor: 'rgba(255,149,182,0.15)',
         alignItems: 'center',
         justifyContent: 'center',
     },
-    priceClearText: { fontSize: 14, color: '#64748B', fontWeight: '700' },
+    priceClearText: { fontSize: 14, color: '#8A6B75', fontWeight: '700' },
     currencyDropdown: {
         marginTop: 6,
-        backgroundColor: '#1E293B',
+        backgroundColor: '#FFFFFF',
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: 'rgba(129,140,248,0.2)',
+        borderColor: 'rgba(255,149,182,0.25)',
         overflow: 'hidden',
     },
     currencyOption: {
@@ -723,43 +753,51 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         gap: 10,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.04)',
+        borderBottomColor: 'rgba(0,0,0,0.04)',
     },
-    currencyOptionActive: { backgroundColor: 'rgba(129,140,248,0.1)' },
-    currencyOptionSymbol: { fontSize: 15, color: '#818CF8', width: 24, textAlign: 'center' },
-    currencyOptionLabel: { flex: 1, fontSize: 13, color: '#94A3B8', fontWeight: '500' },
+    currencyOptionActive: { backgroundColor: 'rgba(255,149,182,0.1)' },
+    currencyOptionSymbol: { fontSize: 15, color: '#FF95B6', width: 24, textAlign: 'center' },
+    currencyOptionLabel: { flex: 1, fontSize: 13, color: '#4A2035', fontWeight: '500' },
     currencyOptionCheck: { fontSize: 14, color: '#10B981', fontWeight: '700' },
     modeToggleContainer: { marginBottom: 18 },
     modeLabel: {
         fontSize: 13,
-        color: '#64748B',
+        color: '#8A6B75',
+        fontFamily: 'Avenir',
         fontWeight: '600',
         letterSpacing: 1,
         textTransform: 'uppercase',
-        marginBottom: 2,
+        marginBottom: 10,
     },
-    modeHint: { fontSize: 11, color: '#475569', marginBottom: 10 },
-    modeToggle: { flexDirection: 'row', gap: 12 },
-    modeButton: {
-        flex: 1,
+    toggleRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 14,
-        paddingHorizontal: 12,
+        justifyContent: 'center',
+        gap: 24,
+        backgroundColor: '#FFF6F8',
         borderRadius: 14,
-        backgroundColor: '#1E293B',
-        borderWidth: 1.5,
-        borderColor: '#1E293B',
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+    },
+    toggleItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
         gap: 8,
     },
-    modeButtonActiveGirl: { backgroundColor: 'rgba(236, 72, 153, 0.12)', borderColor: '#EC4899' },
-    modeButtonActiveTravel: { backgroundColor: 'rgba(59, 130, 246, 0.12)', borderColor: '#3B82F6' },
-    modeEmoji: { fontSize: 20 },
-    modeTextGroup: { flex: 1 },
-    modeButtonText: { fontSize: 14, fontWeight: '600', color: '#64748B' },
-    modeButtonTextActive: { color: '#FFFFFF' },
-    modeButtonSub: { fontSize: 11, color: '#475569', marginTop: 1 },
-    checkmark: { fontSize: 16, fontWeight: '700', color: '#10B981' },
+    toggleLabel: {
+        fontSize: 15,
+        fontFamily: 'Avenir',
+        fontWeight: '600',
+        color: '#C8AAB2',
+    },
+    toggleLabelActive: {
+        color: '#EC4899',
+        fontWeight: '800',
+    },
+    toggleLabelActiveTravel: {
+        color: '#3B82F6',
+        fontWeight: '800',
+    },
 
     /* ---- Analyze button ---- */
     analyzeButton: {
@@ -771,9 +809,9 @@ const styles = StyleSheet.create({
     },
     analyzeButtonDim: { opacity: 0.5 },
     analyzeButtonInner: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    analyzeButtonIcon: { fontSize: 20 },
-    analyzeButtonText: { fontSize: 17, fontWeight: '700', color: '#FFFFFF', letterSpacing: 0.5 },
+    analyzeButtonIcon: { fontSize: 14, fontFamily: 'Avenir', fontWeight: '700', color: '#FFFFFF' },
+    analyzeButtonText: { fontSize: 17, fontFamily: 'Avenir', fontWeight: '700', color: '#FFFFFF', letterSpacing: 0.5 },
 
     /* ---- Mode description ---- */
-    modeDescription: { fontSize: 13, color: '#475569', textAlign: 'center', lineHeight: 18 },
+    modeDescription: { fontSize: 13, fontFamily: 'Avenir', color: '#8A6B75', textAlign: 'center', lineHeight: 18 },
 });

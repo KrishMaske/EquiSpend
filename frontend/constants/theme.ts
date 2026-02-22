@@ -5,24 +5,25 @@
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+// Bubble bath pink palette
+const tintColorLight = '#FF95B6'; // primary tint for light mode (soft bubble-pink)
+const tintColorDark = '#FFB6C1'; // primary tint for dark mode (lighter pink)
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
+    text: '#2B0B17', // deep muted maroon for readable contrast on pale pink
+    background: '#FFF6F8', // very pale bubble-bath pink
     tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
+    icon: '#8A6B75', // muted mauve for secondary elements
+    tabIconDefault: '#8A6B75',
     tabIconSelected: tintColorLight,
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
+    text: '#F8EAF0', // soft off-pink text on dark background
+    background: '#1A0E12', // very dark maroon to harmonize with pink tint
     tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
+    icon: '#C8AAB2', // lighter mauve for icons
+    tabIconDefault: '#C8AAB2',
     tabIconSelected: tintColorDark,
   },
 };

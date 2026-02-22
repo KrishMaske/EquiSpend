@@ -7,10 +7,14 @@ export default function RootLayout() {
     <>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
-        <Stack.Screen name="scanner" />
+        <Stack.Screen name="login" />
+        <Stack.Screen name="signup" />
+        <Stack.Screen name="scanner" options={{ gestureEnabled: false }} />
         <Stack.Screen name="results" />
+        <Stack.Screen name="profile" />
+        <Stack.Screen name="history" />
       </Stack>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
     </>
   );
 }

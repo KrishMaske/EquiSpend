@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { getSharedImage, getSharedLocation, getSharedManualPrice } from '../image-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
@@ -63,7 +64,6 @@ export default function ResultsScreen() {
             const formData = new FormData();
             formData.append('mode', mode);
 
-            // Attach location data if available
             if (location) {
                 formData.append('latitude', String(location.latitude));
                 formData.append('longitude', String(location.longitude));
@@ -71,13 +71,11 @@ export default function ResultsScreen() {
                 if (location.country) formData.append('country', location.country);
             }
 
-            // Attach manual price + currency if provided
             if (manualPrice !== null) {
                 formData.append('manual_price', String(manualPrice));
             }
             formData.append('currency', currency);
 
-            // Attach image — web needs blob, native needs file URI object
             if (Platform.OS === 'web') {
                 const response = await fetch(imageUri);
                 const blob = await response.blob();
@@ -111,9 +109,56 @@ export default function ResultsScreen() {
 
             setAnalysisData(results);
             setState('success');
+
+            // Save to history
+            saveToHistory(results);
         } catch (err: any) {
             setErrorMsg(err.message ?? 'Unknown error');
             setState('error');
+        }
+    };
+
+    const saveToHistory = async (results: AnalysisData) => {
+        try {
+            const raw = await AsyncStorage.getItem('scan_history');
+            const history = raw ? JSON.parse(raw) : [];
+            const now = new Date().toISOString();
+            const loc = location?.city
+                ? `${location.city}${location.country ? `, ${location.country}` : ''}`
+                : undefined;
+
+            if (results.girl) {
+                history.push({
+                    id: `${now}-girl`,
+                    date: now,
+                    mode,
+                    product_name: results.girl.product_name ?? 'Unknown Product',
+                    price_scanned: results.girl.price_scanned ?? 0,
+                    fair_price: results.girl.fair_price ?? 0,
+                    equity_gap: results.girl.equity_gap ?? 0,
+                    currency_symbol: results.girl.currency_symbol ?? currency ?? '$',
+                    type: 'girl',
+                    location: loc,
+                });
+            }
+            if (results.travel) {
+                history.push({
+                    id: `${now}-travel`,
+                    date: now,
+                    mode,
+                    product_name: results.travel.product_name ?? 'Unknown Product',
+                    price_scanned: results.travel.price_scanned ?? 0,
+                    fair_price: results.travel.fair_price ?? 0,
+                    equity_gap: results.travel.equity_gap ?? 0,
+                    currency_symbol: results.travel.currency_symbol ?? currency ?? '$',
+                    type: 'travel',
+                    location: loc,
+                });
+            }
+
+            await AsyncStorage.setItem('scan_history', JSON.stringify(history));
+        } catch (e) {
+            // silently fail
         }
     };
 
@@ -123,7 +168,7 @@ export default function ResultsScreen() {
     const renderLoading = () => (
         <Animated.View entering={FadeIn.duration(600)} style={styles.centerContainer}>
             <View style={styles.loadingCard}>
-                <ActivityIndicator color="#818CF8" size="large" />
+                <ActivityIndicator color="#FF95B6" size="large" />
                 <Text style={styles.loadingTitle}>Analyzing Product…</Text>
                 <Text style={styles.loadingSubtitle}>
                     Sending to Gemini AI for price analysis
@@ -132,7 +177,6 @@ export default function ResultsScreen() {
                     <Image source={{ uri: imageUri }} style={styles.loadingThumb} />
                 ) : null}
 
-                {/* Location pill in loading */}
                 {location?.city && (
                     <View style={styles.locationPill}>
                         <Text style={styles.locationPillText}>
@@ -210,7 +254,7 @@ export default function ResultsScreen() {
                 >
                     <Text style={styles.alertBannerEmoji}>{hasTax ? '⚠️' : '✅'}</Text>
                     <View style={styles.alertBannerTextContainer}>
-                        <Text style={[styles.alertBannerTitle, { color: hasTax ? '#FCA5A5' : '#86EFAC' }]}>
+                        <Text style={[styles.alertBannerTitle, { color: hasTax ? '#DC2626' : '#059669' }]}>
                             {hasTax ? `${label} Detected!` : 'Fair Price!'}
                         </Text>
                         <Text style={styles.alertBannerSub}>
@@ -232,7 +276,7 @@ export default function ResultsScreen() {
                     </View>
                     <View style={styles.priceRow}>
                         <Text style={styles.priceLabel}>Market Price</Text>
-                        <Text style={[styles.priceValue, { color: '#10B981' }]}>
+                        <Text style={[styles.priceValue, { color: '#059669' }]}>
                             {currencySymbol}{Number(fairPrice).toFixed(2)}
                         </Text>
                     </View>
@@ -240,7 +284,7 @@ export default function ResultsScreen() {
                     <View style={styles.priceRow}>
                         <Text style={styles.priceLabelBold}>{label}</Text>
                         <Text
-                            style={[styles.priceValueBold, { color: hasTax ? '#F87171' : '#10B981' }]}
+                            style={[styles.priceValueBold, { color: hasTax ? '#DC2626' : '#059669' }]}
                         >
                             {hasTax ? `+${currencySymbol}${Math.abs(Number(equityGap)).toFixed(2)}` : `${currencySymbol}0.00`}
                         </Text>
@@ -253,8 +297,8 @@ export default function ResultsScreen() {
                         <Text style={[styles.miniStatValue, { color: accentColor }]}>{percentMarkup}%</Text>
                         <Text style={styles.miniStatLabel}>Markup</Text>
                     </View>
-                    <View style={[styles.miniStat, { borderColor: '#10B98130' }]}>
-                        <Text style={[styles.miniStatValue, { color: '#10B981' }]}>
+                    <View style={[styles.miniStat, { borderColor: '#05966930' }]}>
+                        <Text style={[styles.miniStatValue, { color: '#059669' }]}>
                             {currencySymbol}{Math.abs(Number(equityGap)).toFixed(2)}
                         </Text>
                         <Text style={styles.miniStatLabel}>Savings</Text>
@@ -313,12 +357,12 @@ export default function ResultsScreen() {
                             )}
                             <View style={styles.thumbModes}>
                                 {hasGirl && (
-                                    <View style={[styles.modeBadge, { backgroundColor: 'rgba(236,72,153,0.15)' }]}>
+                                    <View style={[styles.modeBadge, { backgroundColor: 'rgba(236,72,153,0.1)' }]}>
                                         <Text style={[styles.modeBadgeText, { color: '#EC4899' }]}>🚺 Girl</Text>
                                     </View>
                                 )}
                                 {hasTravel && (
-                                    <View style={[styles.modeBadge, { backgroundColor: 'rgba(59,130,246,0.15)' }]}>
+                                    <View style={[styles.modeBadge, { backgroundColor: 'rgba(59,130,246,0.1)' }]}>
                                         <Text style={[styles.modeBadgeText, { color: '#3B82F6' }]}>🌍 Travel</Text>
                                     </View>
                                 )}
@@ -360,47 +404,47 @@ export default function ResultsScreen() {
 // STYLES
 // =====================================================================
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0A0E1A' },
+    container: { flex: 1, backgroundColor: '#FFF0F3' },
 
     /* ---- Center container ---- */
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
 
     /* ---- Loading ---- */
     loadingCard: {
-        backgroundColor: '#111827',
+        backgroundColor: '#FFFFFF',
         borderRadius: 24,
         padding: 36,
         alignItems: 'center',
         width: '100%',
         maxWidth: 380,
         borderWidth: 1,
-        borderColor: 'rgba(129, 140, 248, 0.15)',
+        borderColor: 'rgba(255, 149, 182, 0.2)',
     },
-    loadingTitle: { fontSize: 20, fontWeight: '700', color: '#FFFFFF', marginTop: 20 },
-    loadingSubtitle: { fontSize: 13, color: '#64748B', marginTop: 6, textAlign: 'center' },
+    loadingTitle: { fontSize: 20, fontWeight: '700', color: '#1A1A1A', marginTop: 20 },
+    loadingSubtitle: { fontSize: 13, color: '#8A6B75', marginTop: 6, textAlign: 'center' },
     loadingThumb: {
         width: 80,
         height: 80,
         borderRadius: 12,
         marginTop: 20,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: 'rgba(0,0,0,0.06)',
     },
     locationPill: {
         marginTop: 12,
-        backgroundColor: 'rgba(129,140,248,0.1)',
+        backgroundColor: 'rgba(255,149,182,0.1)',
         borderRadius: 16,
         paddingHorizontal: 14,
         paddingVertical: 6,
     },
-    locationPillText: { fontSize: 12, color: '#94A3B8', fontWeight: '600' },
+    locationPillText: { fontSize: 12, color: '#4A2035', fontWeight: '600' },
     loadingModes: { flexDirection: 'row', gap: 10, marginTop: 12 },
     loadingModePill: { borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 },
-    loadingModeText: { fontSize: 12, color: '#94A3B8', fontWeight: '600' },
+    loadingModeText: { fontSize: 12, color: '#4A2035', fontWeight: '600' },
 
     /* ---- Error ---- */
     errorCard: {
-        backgroundColor: '#111827',
+        backgroundColor: '#FFFFFF',
         borderRadius: 24,
         padding: 36,
         alignItems: 'center',
@@ -410,10 +454,10 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(239, 68, 68, 0.2)',
     },
     errorEmoji: { fontSize: 48, marginBottom: 12 },
-    errorTitle: { fontSize: 22, fontWeight: '700', color: '#FCA5A5', marginBottom: 8 },
-    errorMessage: { fontSize: 13, color: '#94A3B8', textAlign: 'center', lineHeight: 20, marginBottom: 20 },
+    errorTitle: { fontSize: 22, fontWeight: '700', color: '#DC2626', marginBottom: 8 },
+    errorMessage: { fontSize: 13, color: '#4A2035', textAlign: 'center', lineHeight: 20, marginBottom: 20 },
     retryButton: {
-        backgroundColor: '#818CF8',
+        backgroundColor: '#FF95B6',
         borderRadius: 14,
         paddingVertical: 14,
         paddingHorizontal: 32,
@@ -421,7 +465,7 @@ const styles = StyleSheet.create({
     },
     retryButtonText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
     backLink: { paddingVertical: 8 },
-    backLinkText: { fontSize: 14, color: '#64748B', fontWeight: '600' },
+    backLinkText: { fontSize: 14, color: '#8A6B75', fontWeight: '600' },
 
     /* ---- Header ---- */
     header: {
@@ -431,13 +475,14 @@ const styles = StyleSheet.create({
         paddingTop: Platform.OS === 'ios' ? 60 : Platform.OS === 'android' ? 48 : 24,
         paddingHorizontal: 20,
         paddingBottom: 16,
+        backgroundColor: '#FFFFFF',
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.05)',
+        borderBottomColor: 'rgba(255,149,182,0.15)',
     },
     backButton: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    backArrow: { fontSize: 20, color: '#818CF8' },
-    backText: { fontSize: 14, color: '#818CF8', fontWeight: '600' },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', letterSpacing: 0.5 },
+    backArrow: { fontSize: 20, color: '#FF95B6' },
+    backText: { fontSize: 14, color: '#FF95B6', fontWeight: '600' },
+    headerTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A1A', letterSpacing: 0.5 },
     headerSpacer: { width: 80 },
 
     /* ---- ScrollView ---- */
@@ -447,36 +492,36 @@ const styles = StyleSheet.create({
     /* ---- Thumb row ---- */
     thumbRow: {
         flexDirection: 'row',
-        backgroundColor: '#111827',
+        backgroundColor: '#FFFFFF',
         borderRadius: 16,
         padding: 14,
         marginBottom: 16,
         alignItems: 'center',
         gap: 14,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
+        borderColor: 'rgba(0,0,0,0.06)',
     },
     resultThumb: {
         width: 64,
         height: 64,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: 'rgba(0,0,0,0.06)',
     },
     thumbInfo: { flex: 1 },
-    thumbTitle: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 },
-    thumbLocation: { fontSize: 12, color: '#818CF8', marginBottom: 6, fontWeight: '500' },
+    thumbTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1A', marginBottom: 4 },
+    thumbLocation: { fontSize: 12, color: '#FF95B6', marginBottom: 6, fontWeight: '500' },
     thumbModes: { flexDirection: 'row', gap: 8 },
     modeBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
     modeBadgeText: { fontSize: 12, fontWeight: '600' },
 
     /* ---- Result card ---- */
     card: {
-        backgroundColor: '#111827',
+        backgroundColor: '#FFFFFF',
         borderRadius: 20,
         marginBottom: 16,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
+        borderColor: 'rgba(0,0,0,0.06)',
         overflow: 'hidden',
     },
     alertBanner: {
@@ -487,22 +532,22 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
     },
     alertBannerDanger: {
-        backgroundColor: 'rgba(239, 68, 68, 0.08)',
-        borderBottomColor: 'rgba(239, 68, 68, 0.15)',
+        backgroundColor: 'rgba(239, 68, 68, 0.06)',
+        borderBottomColor: 'rgba(239, 68, 68, 0.1)',
     },
     alertBannerSuccess: {
-        backgroundColor: 'rgba(16, 185, 129, 0.08)',
-        borderBottomColor: 'rgba(16, 185, 129, 0.15)',
+        backgroundColor: 'rgba(5, 150, 105, 0.06)',
+        borderBottomColor: 'rgba(5, 150, 105, 0.1)',
     },
     alertBannerEmoji: { fontSize: 28 },
     alertBannerTextContainer: { flex: 1 },
     alertBannerTitle: { fontSize: 18, fontWeight: '800' },
-    alertBannerSub: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
+    alertBannerSub: { fontSize: 12, color: '#8A6B75', marginTop: 2 },
     cardSection: { padding: 18 },
     cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
     cardIcon: { fontSize: 22 },
-    cardTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF', flex: 1 },
-    divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginVertical: 12 },
+    cardTitle: { fontSize: 17, fontWeight: '700', color: '#1A1A1A', flex: 1 },
+    divider: { height: 1, backgroundColor: 'rgba(0,0,0,0.06)', marginVertical: 12 },
 
     /* ---- Price rows ---- */
     priceRow: {
@@ -511,9 +556,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 5,
     },
-    priceLabel: { fontSize: 14, color: '#94A3B8', fontWeight: '500' },
-    priceValue: { fontSize: 15, color: '#FFFFFF', fontWeight: '600' },
-    priceLabelBold: { fontSize: 15, color: '#FFFFFF', fontWeight: '700' },
+    priceLabel: { fontSize: 14, color: '#8A6B75', fontWeight: '500' },
+    priceValue: { fontSize: 15, color: '#1A1A1A', fontWeight: '600' },
+    priceLabelBold: { fontSize: 15, color: '#1A1A1A', fontWeight: '700' },
     priceValueBold: { fontSize: 20, fontWeight: '800' },
 
     /* ---- Mini stats ---- */
@@ -524,12 +569,12 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         borderRadius: 12,
         borderWidth: 1,
-        backgroundColor: 'rgba(255,255,255,0.02)',
+        backgroundColor: '#FFF6F8',
     },
     miniStatValue: { fontSize: 18, fontWeight: '800', marginBottom: 2 },
     miniStatLabel: {
         fontSize: 10,
-        color: '#64748B',
+        color: '#8A6B75',
         fontWeight: '600',
         textTransform: 'uppercase',
         letterSpacing: 0.5,
@@ -538,21 +583,21 @@ const styles = StyleSheet.create({
     /* ---- Suggestion ---- */
     suggestionBox: {
         borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.06)',
+        borderTopColor: 'rgba(0,0,0,0.06)',
         padding: 18,
     },
-    suggestionText: { fontSize: 13, color: '#94A3B8', lineHeight: 20, marginBottom: 14 },
+    suggestionText: { fontSize: 13, color: '#4A2035', lineHeight: 20, marginBottom: 14 },
     suggestionButton: { borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
     suggestionButtonText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
 
     /* ---- Scan Again ---- */
     scanAgainButton: {
-        backgroundColor: '#1E293B',
+        backgroundColor: '#FFFFFF',
         borderRadius: 16,
         paddingVertical: 18,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(129, 140, 248, 0.15)',
+        borderColor: 'rgba(255, 149, 182, 0.3)',
     },
-    scanAgainText: { fontSize: 16, fontWeight: '700', color: '#818CF8' },
+    scanAgainText: { fontSize: 16, fontWeight: '700', color: '#FF95B6' },
 });
