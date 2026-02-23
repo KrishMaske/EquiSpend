@@ -1,4 +1,4 @@
-# EquiSpend
+# EquiSpend - Fiserv Challenge & Google Gemini Challenge Winner @ HackHERS
 
 **Stop getting ripped off.** Snap a photo of any product, and EquiSpend tells you the real price — instantly.
 
